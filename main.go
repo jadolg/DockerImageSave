@@ -36,5 +36,6 @@ func main() {
 	router.PathPrefix("/download/").Handler(http.StripPrefix("/download/",
 		http.FileServer(http.Dir(downloadsFolder))))
 	fmt.Println("Listening on port " + *port)
+	fmt.Println("Downloading files on " + downloadsFolder)
 	log.Fatal(http.ListenAndServe(":"+*port, router))
 }
