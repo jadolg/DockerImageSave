@@ -1,4 +1,4 @@
-package main
+package dockerimagesave
 
 // PullResponse is response format when calling pull image
 type PullResponse struct {

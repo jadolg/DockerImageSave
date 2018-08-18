@@ -1,4 +1,4 @@
-package main
+package dockerimagesave
 
 // https://golangcode.com/create-zip-files-in-go/
 
