@@ -6,6 +6,8 @@ import (
 	"os"
 
 	"github.com/gorilla/mux"
+	"github.com/shirou/gopsutil/host"
+	"github.com/shirou/gopsutil/mem"
 )
 
 // PullImageHandler handles pulling a docker image
@@ -74,4 +76,25 @@ func SaveImageHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		json.NewEncoder(w).Encode(SaveResponse{ID: params["id"], Error: "Image has to be pulled first", Status: "Error"})
 	}
+}
+
+// HealthCheckHandler responds with data about the host
+func HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
+	memory, err1 := mem.VirtualMemory()
+	host, err2 := host.Info()
+	errorMsg := ""
+	if err1 != nil {
+		errorMsg = err1.Error()
+	}
+	if err2 != nil {
+		errorMsg = err2.Error()
+	}
+	json.NewEncoder(w).Encode(
+		HealthCheckResponse{
+			Memory:     memory.Total,
+			UsedMemory: memory.Used,
+			OS:         host.OS,
+			Platform:   host.Platform,
+			Error:      errorMsg,
+		})
 }

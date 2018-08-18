@@ -35,6 +35,7 @@ func main() {
 	router.HandleFunc("/save/{id}", SaveImageHandler).Methods("GET")
 	router.PathPrefix("/download/").Handler(http.StripPrefix("/download/",
 		http.FileServer(http.Dir(downloadsFolder))))
+	router.HandleFunc("/healthcheck", HealthCheckHandler).Methods("GET")
 	fmt.Println("Listening on port " + *port)
 	fmt.Println("Downloading files on " + downloadsFolder)
 	log.Fatal(http.ListenAndServe(":"+*port, router))
