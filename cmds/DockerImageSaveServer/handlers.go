@@ -55,7 +55,7 @@ func SaveImageHandler(w http.ResponseWriter, r *http.Request) {
 	if imageExists {
 		if !dockerimagesave.FileExists(downloadsFolder+"/"+params["id"]+".tar") && dockerimagesave.FileExists(downloadsFolder+"/"+params["id"]+".tar.zip") {
 			json.NewEncoder(w).Encode(dockerimagesave.SaveResponse{ID: params["id"],
-				URL:    "/download/" + params["id"] + ".tar.zip",
+				URL:    "download/" + params["id"] + ".tar.zip",
 				Size:   dockerimagesave.GetFileSize(downloadsFolder + "/" + params["id"] + ".tar.zip"),
 				Status: "Ready",
 			})
@@ -71,7 +71,7 @@ func SaveImageHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		json.NewEncoder(w).Encode(dockerimagesave.SaveResponse{ID: params["id"],
-			URL:    "/download/" + params["id"] + ".tar.zip",
+			URL:    "download/" + params["id"] + ".tar.zip",
 			Status: "Saving"})
 
 	} else {
