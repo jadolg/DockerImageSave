@@ -17,7 +17,7 @@ func PullImageHandler(w http.ResponseWriter, r *http.Request) {
 
 	imageExists, err := dockerimagesave.ImageExists(params["id"])
 	if err != nil {
-		json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: params["id"], Error: err.Error()})
+		json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: params["id"], Error: err.Error(), Status: "Error"})
 		return
 	}
 
