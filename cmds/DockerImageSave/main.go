@@ -36,16 +36,19 @@ func main() {
 	pullImage, err := PullImageRequest(imageName)
 
 	if err != nil {
-		panic(err)
+		fmt.Println(err.Error())
+		os.Exit(1)
 	}
 	spinner := startSpinner("Downloading image")
 	for pullImage.Status != "Downloaded" {
 		if pullImage.Status == "Error" {
-			panic("Can not pull image")
+			fmt.Println("\nCan not pull image")
+			os.Exit(1)
 		}
 		pullImage, err = PullImageRequest(imageName)
 		if err != nil {
-			panic(err)
+			fmt.Println(err.Error())
+			os.Exit(1)
 		}
 		time.Sleep(time.Second * 10)
 	}
@@ -54,16 +57,19 @@ func main() {
 	saveImage, err := SaveImageRequest(imageName)
 
 	if err != nil {
-		panic(err)
+		fmt.Println(err.Error())
+		os.Exit(1)
 	}
 	spinner = startSpinner("Saving image")
 	for saveImage.Status != "Ready" {
 		if pullImage.Status == "Error" {
-			panic("Can not save image")
+			fmt.Println("\nCan not save image")
+			os.Exit(1)
 		}
 		saveImage, err = SaveImageRequest(imageName)
 		if err != nil {
-			panic(err)
+			fmt.Println(err.Error())
+			os.Exit(1)
 		}
 		time.Sleep(time.Second * 10)
 	}
