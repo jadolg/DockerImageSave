@@ -26,7 +26,19 @@ func stopSpinner(s *spinner.Spinner, message string) {
 	emoji.Println(":ok: " + message)
 }
 
+func printBanner() {
+	banner := `
+ ___            _               _                         ___                   _              _           
+| . \ ___  ___ | |__ ___  _ _  | |._ _ _  ___  ___  ___  | . \ ___  _ _ _ ._ _ | | ___  ___  _| | ___  _ _ 
+| | |/ . \/ | '| / // ._>| '_> | || ' ' |<_> |/ . |/ ._> | | |/ . \| | | || ' || |<_> |/ . \/ . |/ ._>| '_>
+|___/\___/\_|_.|_\_\\___.|_|   |_||_|_|_|<___|\_. |\___. |___/\___/|__/_/ |_|_||_|<___|\___/\___|\___.|_|  
+                                              <___'    Sponsored by Cuban.Engineer [https://cuban.engineer]
+	`
+	fmt.Println(banner)
+}
+
 func main() {
+	printBanner()
 	if len(os.Args) < 2 {
 		fmt.Println("Not enough arguments. Please specify image name.")
 		os.Exit(1)
