@@ -2,3 +2,7 @@ vendor/
 Gopkg.lock
 .idea/
 .vscode/
+DockerImageSave
+DockerImageSaveServer
+!DockerImageSave/
+!DockerImageSaveServer/
