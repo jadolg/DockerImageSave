@@ -43,6 +43,10 @@ func main() {
 		fmt.Println("Not enough arguments. Please specify image name.")
 		os.Exit(1)
 	}
+
+	fmt.Println("Using server: " + ServiceURL)
+	fmt.Println("Downloading image: " + os.Args[1])
+
 	imageName := os.Args[1]
 
 	pullImage, err := PullImageRequest(imageName)
