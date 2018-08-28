@@ -87,5 +87,5 @@ func main() {
 	}
 	stopSpinner(spinner, "Image saved and compressed on remote host")
 
-	downloadFile(ServiceURL + "download/mongo:4.tar.zip")
+	downloadFile(ServiceURL + saveImage.URL)
 }
