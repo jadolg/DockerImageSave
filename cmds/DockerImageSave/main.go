@@ -10,7 +10,7 @@ import (
 )
 
 // ServiceURL URL of the service with trailing /
-const ServiceURL = "http://localhost:6060/"
+const ServiceURL = "http://ddnnss.eu:6060/"
 
 func startSpinner(message string) *spinner.Spinner {
 	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
