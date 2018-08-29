@@ -45,9 +45,9 @@ func main() {
 	}
 
 	fmt.Println("Using server: " + ServiceURL)
-	fmt.Println("Downloading image: " + ServiceURL)
 
 	imageName := os.Args[1]
+	fmt.Println("Downloading image: " + imageName)
 
 	pullImage, err := PullImageRequest(imageName)
 
