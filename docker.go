@@ -3,7 +3,6 @@ package dockerimagesave
 import (
 	"bufio"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -75,6 +74,5 @@ func ImageExistsInRegistry(imageid string) (bool, error) {
 	}
 	defer resp.Body.Close()
 	b, _ := ioutil.ReadAll(resp.Body)
-	fmt.Println(string(b))
 	return string(b) != "\"Resource not found\"" && string(b) != "Tag not found", nil
 }
