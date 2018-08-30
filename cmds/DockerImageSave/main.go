@@ -1,8 +1,10 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/briandowns/spinner"
@@ -10,7 +12,7 @@ import (
 )
 
 // ServiceURL URL of the service with trailing /
-const ServiceURL = "http://ddnnss.eu:6060/"
+var ServiceURL = "http://ddnnss.eu:6060/"
 
 func startSpinner(message string) *spinner.Spinner {
 	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
@@ -39,14 +41,27 @@ func printBanner() {
 
 func main() {
 	printBanner()
-	if len(os.Args) < 2 {
-		fmt.Println("Not enough arguments. Please specify image name.")
+	image := flag.String("i", "", "Image to download")
+	server := flag.String("s", "http://ddnnss.eu:6060/", "URL of the Docker Image Download Server")
+
+	flag.Parse()
+
+	if *image == "" {
+		fmt.Println("You must specify an image to download.\nUse -h to see application details.")
 		os.Exit(1)
+	}
+
+	if *server != "http://ddnnss.eu:6060/" {
+		if strings.HasSuffix(*server, "/") {
+			ServiceURL = *server
+		} else {
+			ServiceURL = *server + "/"
+		}
 	}
 
 	fmt.Println("Using server: " + ServiceURL)
 
-	imageName := os.Args[1]
+	imageName := *image
 	fmt.Println("Downloading image: " + imageName)
 
 	pullImage, err := PullImageRequest(imageName)
