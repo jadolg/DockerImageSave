@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"os"
 
@@ -17,13 +18,18 @@ func PullImageHandler(w http.ResponseWriter, r *http.Request) {
 
 	imageExists, err := dockerimagesave.ImageExists(params["id"])
 	if err != nil {
+		log.Printf("Error checking if image '%s' exists locally", params["id"])
 		json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: params["id"], Error: err.Error(), Status: "Error"})
 		return
 	}
 
+	log.Printf("Requested pulling image '%s'", params["id"])
+
 	if !imageExists {
+		log.Printf("Image '%s' does not exist locally", params["id"])
 		existsInRegistry, err := dockerimagesave.ImageExistsInRegistry(params["id"])
 		if err == nil && existsInRegistry {
+			log.Printf("Image '%s' exists in registry. Pulling image.", params["id"])
 			go func() {
 				err2 := dockerimagesave.PullImage(params["id"])
 				if err2 != nil {
@@ -34,11 +40,12 @@ func PullImageHandler(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: params["id"], Status: "Downloading"})
 			return
 		}
-
+		log.Printf("Image '%s' does not exist in registry.", params["id"])
 		json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: params["id"], Error: "Can't find image in DockerHub", Status: "Error"})
 		return
 	}
 
+	log.Printf("Image '%s' was already downloaded.", params["id"])
 	json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: params["id"], Status: "Downloaded"})
 }
 
