@@ -37,6 +37,7 @@ func PullImageHandler(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 			}()
+			log.Printf("Responding image '%s' is still being downloaded.", params["id"])
 			json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: params["id"], Status: "Downloading"})
 			return
 		}
@@ -45,7 +46,7 @@ func PullImageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Image '%s' was already downloaded.", params["id"])
+	log.Printf("Image '%s' was already pulled.", params["id"])
 	json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: params["id"], Status: "Downloaded"})
 }
 
@@ -62,7 +63,7 @@ func SaveImageHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Requested saving image '%s'.", params["id"])
 
 	if imageExists {
-		log.Printf("Image '%s' exists locally.", params["id"])
+		log.Printf("Image '%s' has already being pulled.", params["id"])
 		if !dockerimagesave.FileExists(downloadsFolder+"/"+params["id"]+".tar") && dockerimagesave.FileExists(downloadsFolder+"/"+params["id"]+".tar.zip") {
 			log.Printf("Image '%s' is ready to be downloaded.", params["id"])
 			json.NewEncoder(w).Encode(dockerimagesave.SaveResponse{ID: params["id"],
@@ -83,6 +84,7 @@ func SaveImageHandler(w http.ResponseWriter, r *http.Request) {
 			}()
 		}
 
+		log.Printf("Responding image '%s' is still being saved.", params["id"])
 		json.NewEncoder(w).Encode(dockerimagesave.SaveResponse{ID: params["id"],
 			URL:    "download/" + params["id"] + ".tar.zip",
 			Status: "Saving"})
