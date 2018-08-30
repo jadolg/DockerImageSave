@@ -59,8 +59,12 @@ func SaveImageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("Requested saving image '%s'.", params["id"])
+
 	if imageExists {
+		log.Printf("Image '%s' exists locally.", params["id"])
 		if !dockerimagesave.FileExists(downloadsFolder+"/"+params["id"]+".tar") && dockerimagesave.FileExists(downloadsFolder+"/"+params["id"]+".tar.zip") {
+			log.Printf("Image '%s' is ready to be downloaded.", params["id"])
 			json.NewEncoder(w).Encode(dockerimagesave.SaveResponse{ID: params["id"],
 				URL:    "download/" + params["id"] + ".tar.zip",
 				Size:   dockerimagesave.GetFileSize(downloadsFolder + "/" + params["id"] + ".tar.zip"),
@@ -70,10 +74,12 @@ func SaveImageHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if !dockerimagesave.FileExists(downloadsFolder + "/" + params["id"] + ".tar") {
+			log.Printf("Saving image '%s' into file %s", params["id"], downloadsFolder+"/"+params["id"]+".tar.zip")
 			go func() {
 				dockerimagesave.SaveImage(params["id"], downloadsFolder)
 				dockerimagesave.ZipFiles(downloadsFolder+"/"+params["id"]+".tar.zip", []string{"/tmp/" + params["id"] + ".tar"})
 				os.Remove(downloadsFolder + "/" + params["id"] + ".tar")
+				log.Printf("Removed uncompressed image file '%s'", downloadsFolder+"/"+params["id"]+".tar")
 			}()
 		}
 
@@ -82,6 +88,7 @@ func SaveImageHandler(w http.ResponseWriter, r *http.Request) {
 			Status: "Saving"})
 
 	} else {
+		log.Printf("Image '%s' has to be pulled before it's saved", params["id"])
 		json.NewEncoder(w).Encode(dockerimagesave.SaveResponse{ID: params["id"], Error: "Image has to be pulled first", Status: "Error"})
 	}
 }
