@@ -61,8 +61,11 @@ func SaveImageHandler(w http.ResponseWriter, r *http.Request) {
 
 	user := params["user"]
 	imageID := params["id"]
+	imageName := imageID
+
 	if user != "" {
-		imageID = user + "_" + imageID
+		imageID = user + "/" + imageID
+		imageName = user + "_" + imageID
 	}
 
 	imageExists, err := dockerimagesave.ImageExists(imageID)
@@ -75,33 +78,29 @@ func SaveImageHandler(w http.ResponseWriter, r *http.Request) {
 
 	if imageExists {
 		log.Printf("Image '%s' has already being pulled.", imageID)
-		if !dockerimagesave.FileExists(downloadsFolder+"/"+imageID+".tar") && dockerimagesave.FileExists(downloadsFolder+"/"+imageID+".tar.zip") {
+		if !dockerimagesave.FileExists(downloadsFolder+"/"+imageName+".tar") && dockerimagesave.FileExists(downloadsFolder+"/"+imageName+".tar.zip") {
 			log.Printf("Image '%s' is ready to be downloaded.", imageID)
 			json.NewEncoder(w).Encode(dockerimagesave.SaveResponse{ID: imageID,
-				URL:    "download/" + imageID + ".tar.zip",
-				Size:   dockerimagesave.GetFileSize(downloadsFolder + "/" + imageID + ".tar.zip"),
+				URL:    "download/" + imageName + ".tar.zip",
+				Size:   dockerimagesave.GetFileSize(downloadsFolder + "/" + imageName + ".tar.zip"),
 				Status: "Ready",
 			})
 			return
 		}
 
-		if !dockerimagesave.FileExists(downloadsFolder + "/" + imageID + ".tar") {
-			log.Printf("Saving image '%s' into file %s", imageID, downloadsFolder+"/"+imageID+".tar.zip")
+		if !dockerimagesave.FileExists(downloadsFolder + "/" + imageName + ".tar") {
+			log.Printf("Saving image '%s' into file %s", imageID, downloadsFolder+"/"+imageName+".tar.zip")
 			go func() {
-				if user != "" {
-					dockerimagesave.SaveImage(params["user"]+"/"+params["id"], downloadsFolder)
-				} else {
-					dockerimagesave.SaveImage(params["id"], downloadsFolder)
-				}
-				dockerimagesave.ZipFiles(downloadsFolder+"/"+imageID+".tar.zip", []string{"/tmp/" + imageID + ".tar"})
-				os.Remove(downloadsFolder + "/" + imageID + ".tar")
-				log.Printf("Removed uncompressed image file '%s'", downloadsFolder+"/"+imageID+".tar")
+				dockerimagesave.SaveImage(imageID, downloadsFolder)
+				dockerimagesave.ZipFiles(downloadsFolder+"/"+imageName+".tar.zip", []string{"/tmp/" + imageName + ".tar"})
+				os.Remove(downloadsFolder + "/" + imageName + ".tar")
+				log.Printf("Removed uncompressed image file '%s'", downloadsFolder+"/"+imageName+".tar")
 			}()
 		}
 
 		log.Printf("Responding image '%s' is still being saved.", imageID)
 		json.NewEncoder(w).Encode(dockerimagesave.SaveResponse{ID: imageID,
-			URL:    "download/" + imageID + ".tar.zip",
+			URL:    "download/" + imageName + ".tar.zip",
 			Status: "Saving"})
 
 	} else {
