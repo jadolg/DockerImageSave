@@ -62,7 +62,7 @@ func SaveImageHandler(w http.ResponseWriter, r *http.Request) {
 	user := params["user"]
 	imageID := params["id"]
 	if user != "" {
-		imageID = user + "/" + imageID
+		imageID = user + "_" + imageID
 	}
 
 	imageExists, err := dockerimagesave.ImageExists(imageID)
@@ -88,7 +88,11 @@ func SaveImageHandler(w http.ResponseWriter, r *http.Request) {
 		if !dockerimagesave.FileExists(downloadsFolder + "/" + imageID + ".tar") {
 			log.Printf("Saving image '%s' into file %s", imageID, downloadsFolder+"/"+imageID+".tar.zip")
 			go func() {
-				dockerimagesave.SaveImage(imageID, downloadsFolder)
+				if user != "" {
+					dockerimagesave.SaveImage(params["user"]+"/"+params["id"], downloadsFolder)
+				} else {
+					dockerimagesave.SaveImage(params["id"], downloadsFolder)
+				}
 				dockerimagesave.ZipFiles(downloadsFolder+"/"+imageID+".tar.zip", []string{"/tmp/" + imageID + ".tar"})
 				os.Remove(downloadsFolder + "/" + imageID + ".tar")
 				log.Printf("Removed uncompressed image file '%s'", downloadsFolder+"/"+imageID+".tar")
