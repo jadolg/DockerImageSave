@@ -65,7 +65,7 @@ func SaveImageHandler(w http.ResponseWriter, r *http.Request) {
 
 	if user != "" {
 		imageID = user + "/" + imageID
-		imageName = user + "_" + imageID
+		imageName = user + "_" + params["id"]
 	}
 
 	imageExists, err := dockerimagesave.ImageExists(imageID)
