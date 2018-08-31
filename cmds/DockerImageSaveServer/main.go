@@ -33,6 +33,8 @@ func main() {
 	router := mux.NewRouter()
 	router.HandleFunc("/pull/{id}", PullImageHandler).Methods("GET")
 	router.HandleFunc("/save/{id}", SaveImageHandler).Methods("GET")
+	router.HandleFunc("/pull/{user}/{id}", PullImageHandler).Methods("GET")
+	router.HandleFunc("/save/{user}/{id}", SaveImageHandler).Methods("GET")
 	router.PathPrefix("/download/").Handler(http.StripPrefix("/download/",
 		http.FileServer(http.Dir(downloadsFolder))))
 	router.HandleFunc("/healthcheck", HealthCheckHandler).Methods("GET")

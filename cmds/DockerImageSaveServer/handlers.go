@@ -16,82 +16,93 @@ import (
 func PullImageHandler(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 
-	imageExists, err := dockerimagesave.ImageExists(params["id"])
+	user := params["user"]
+	imageID := params["id"]
+	if user != "" {
+		imageID = user + "/" + imageID
+	}
+	imageExists, err := dockerimagesave.ImageExists(imageID)
 	if err != nil {
-		log.Printf("Error checking if image '%s' exists locally", params["id"])
-		json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: params["id"], Error: err.Error(), Status: "Error"})
+		log.Printf("Error checking if image '%s' exists locally", imageID)
+		json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Error: err.Error(), Status: "Error"})
 		return
 	}
 
-	log.Printf("Requested pulling image '%s'", params["id"])
+	log.Printf("Requested pulling image '%s'", imageID)
 
 	if !imageExists {
-		log.Printf("Image '%s' does not exist locally", params["id"])
-		existsInRegistry, err := dockerimagesave.ImageExistsInRegistry(params["id"])
+		log.Printf("Image '%s' does not exist locally", imageID)
+		existsInRegistry, err := dockerimagesave.ImageExistsInRegistry(imageID)
 		if err == nil && existsInRegistry {
-			log.Printf("Image '%s' exists in registry. Pulling image.", params["id"])
+			log.Printf("Image '%s' exists in registry. Pulling image.", imageID)
 			go func() {
-				err2 := dockerimagesave.PullImage(params["id"])
+				err2 := dockerimagesave.PullImage(imageID)
 				if err2 != nil {
-					json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: params["id"], Error: err2.Error(), Status: "Error"})
+					json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Error: err2.Error(), Status: "Error"})
 					return
 				}
 			}()
-			log.Printf("Responding image '%s' is still being downloaded.", params["id"])
-			json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: params["id"], Status: "Downloading"})
+			log.Printf("Responding image '%s' is still being downloaded.", imageID)
+			json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Status: "Downloading"})
 			return
 		}
-		log.Printf("Image '%s' does not exist in registry.", params["id"])
-		json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: params["id"], Error: "Can't find image in DockerHub", Status: "Error"})
+		log.Printf("Image '%s' does not exist in registry.", imageID)
+		json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Error: "Can't find image in DockerHub", Status: "Error"})
 		return
 	}
 
-	log.Printf("Image '%s' was already pulled.", params["id"])
-	json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: params["id"], Status: "Downloaded"})
+	log.Printf("Image '%s' was already pulled.", imageID)
+	json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Status: "Downloaded"})
 }
 
 // SaveImageHandler handles saving a docker image
 func SaveImageHandler(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 
-	imageExists, err := dockerimagesave.ImageExists(params["id"])
+	user := params["user"]
+	imageID := params["id"]
+	if user != "" {
+		imageID = user + "/" + imageID
+	}
+
+	imageExists, err := dockerimagesave.ImageExists(imageID)
 	if err != nil {
-		json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: params["id"], Error: err.Error()})
+		json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Error: err.Error()})
 		return
 	}
 
-	log.Printf("Requested saving image '%s'.", params["id"])
+	log.Printf("Requested saving image '%s'.", imageID)
 
 	if imageExists {
-		log.Printf("Image '%s' has already being pulled.", params["id"])
-		if !dockerimagesave.FileExists(downloadsFolder+"/"+params["id"]+".tar") && dockerimagesave.FileExists(downloadsFolder+"/"+params["id"]+".tar.zip") {
-			log.Printf("Image '%s' is ready to be downloaded.", params["id"])
-			json.NewEncoder(w).Encode(dockerimagesave.SaveResponse{ID: params["id"],
-				URL:    "download/" + params["id"] + ".tar.zip",
-				Size:   dockerimagesave.GetFileSize(downloadsFolder + "/" + params["id"] + ".tar.zip"),
+		log.Printf("Image '%s' has already being pulled.", imageID)
+		if !dockerimagesave.FileExists(downloadsFolder+"/"+imageID+".tar") && dockerimagesave.FileExists(downloadsFolder+"/"+imageID+".tar.zip") {
+			log.Printf("Image '%s' is ready to be downloaded.", imageID)
+			json.NewEncoder(w).Encode(dockerimagesave.SaveResponse{ID: imageID,
+				URL:    "download/" + imageID + ".tar.zip",
+				Size:   dockerimagesave.GetFileSize(downloadsFolder + "/" + imageID + ".tar.zip"),
 				Status: "Ready",
 			})
 			return
 		}
 
-		if !dockerimagesave.FileExists(downloadsFolder + "/" + params["id"] + ".tar") {
-			log.Printf("Saving image '%s' into file %s", params["id"], downloadsFolder+"/"+params["id"]+".tar.zip")
+		if !dockerimagesave.FileExists(downloadsFolder + "/" + imageID + ".tar") {
+			log.Printf("Saving image '%s' into file %s", imageID, downloadsFolder+"/"+imageID+".tar.zip")
 			go func() {
-				dockerimagesave.SaveImage(params["id"], downloadsFolder)
-				dockerimagesave.ZipFiles(downloadsFolder+"/"+params["id"]+".tar.zip", []string{"/tmp/" + params["id"] + ".tar"})
-				os.Remove(downloadsFolder + "/" + params["id"] + ".tar")
-				log.Printf("Removed uncompressed image file '%s'", downloadsFolder+"/"+params["id"]+".tar")
+				dockerimagesave.SaveImage(imageID, downloadsFolder)
+				dockerimagesave.ZipFiles(downloadsFolder+"/"+imageID+".tar.zip", []string{"/tmp/" + imageID + ".tar"})
+				os.Remove(downloadsFolder + "/" + imageID + ".tar")
+				log.Printf("Removed uncompressed image file '%s'", downloadsFolder+"/"+imageID+".tar")
 			}()
 		}
 
-		log.Printf("Responding image '%s' is still being saved.", params["id"])
-		json.NewEncoder(w).Encode(dockerimagesave.SaveResponse{ID: params["id"],
-			URL:    "download/" + params["id"] + ".tar.zip",
+		log.Printf("Responding image '%s' is still being saved.", imageID)
+		json.NewEncoder(w).Encode(dockerimagesave.SaveResponse{ID: imageID,
+			URL:    "download/" + imageID + ".tar.zip",
 			Status: "Saving"})
 
 	} else {
-		log.Printf("Image '%s' has to be pulled before it's saved", params["id"])
-		json.NewEncoder(w).Encode(dockerimagesave.SaveResponse{ID: params["id"], Error: "Image has to be pulled first", Status: "Error"})
+		log.Printf("Image '%s' has to be pulled before it's saved", imageID)
+		json.NewEncoder(w).Encode(dockerimagesave.SaveResponse{ID: imageID, Error: "Image has to be pulled first", Status: "Error"})
 	}
 }
 
