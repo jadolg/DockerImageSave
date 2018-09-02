@@ -9,6 +9,6 @@ WORKDIR /go/src/github.com/jadolg/DockerImageSave/
 
 RUN dep ensure
 
-RUN go build github.com/jadolg/DockerImageSave/cmds/DockerImageSaveServer
+RUN go build github.com/jadolg/DockerImageSave/cmd/DockerImageSaveServer
 
 ENTRYPOINT [ "./DockerImageSaveServer" ]
