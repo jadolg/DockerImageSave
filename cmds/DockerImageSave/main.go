@@ -42,7 +42,7 @@ func printBanner() {
 func main() {
 	printBanner()
 	image := flag.String("i", "", "Image to download")
-	server := flag.String("s", "http://ddnnss.eu:6060/", "URL of the Docker Image Download Server")
+	server := flag.String("s", ServiceURL, "URL of the Docker Image Download Server")
 
 	flag.Parse()
 
@@ -51,7 +51,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if *server != "http://ddnnss.eu:6060/" {
+	if *server != ServiceURL {
 		if strings.HasSuffix(*server, "/") {
 			ServiceURL = *server
 		} else {
