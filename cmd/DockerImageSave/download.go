@@ -6,16 +6,21 @@ import (
 	"time"
 
 	"github.com/cavaliercoder/grab"
+	"github.com/dustin/go-humanize"
 )
 
-func downloadFile(afile string) {
+func downloadFile(afile string) bool {
 	client := grab.NewClient()
 	req, _ := grab.NewRequest(".", afile)
 
 	// start download
 	fmt.Printf("Downloading %v...\n", req.URL())
 	resp := client.Do(req)
-	fmt.Printf("  %v\n", resp.HTTPResponse.Status)
+	if resp.HTTPResponse != nil {
+		fmt.Printf("  %v\n", resp.HTTPResponse.Status)
+	} else {
+		return false
+	}
 
 	// start UI loop
 	t := time.NewTicker(500 * time.Millisecond)
@@ -25,9 +30,9 @@ Loop:
 	for {
 		select {
 		case <-t.C:
-			fmt.Printf("  transferred %v / %v bytes (%.2f%%)\n",
-				resp.BytesComplete(),
-				resp.Size,
+			fmt.Printf("  transferred %v / %v (%.2f%%)\n",
+				humanize.Bytes(uint64(resp.BytesComplete())),
+				humanize.Bytes(uint64(resp.Size)),
 				100*resp.Progress())
 
 		case <-resp.Done:
@@ -39,9 +44,9 @@ Loop:
 	// check for errors
 	if err := resp.Err(); err != nil {
 		fmt.Fprintf(os.Stderr, "Download failed: %v\n", err)
-		os.Exit(1)
+		return false
 	}
 
 	fmt.Printf("Download saved to ./%v \n", resp.Filename)
-
+	return true
 }
