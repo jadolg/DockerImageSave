@@ -39,6 +39,47 @@ func printBanner() {
 	fmt.Println(banner)
 }
 
+func pullImage(imageName string) bool {
+	pullImage, err := PullImageRequest(imageName)
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return false
+	}
+
+	for pullImage.Status != "Downloaded" {
+		if pullImage.Status == "Error" {
+			fmt.Println("\nCan not pull image")
+			return false
+		}
+		pullImage, err = PullImageRequest(imageName)
+		if err != nil {
+			fmt.Println(err.Error())
+			return false
+		}
+		time.Sleep(time.Second * 5)
+	}
+	return true
+}
+
+func saveImage(imageName string) (bool, string) {
+	saveImage, err := SaveImageRequest(imageName)
+	if err != nil {
+		fmt.Println(err.Error())
+		return false, ""
+	}
+
+	for saveImage.Status != "Ready" {
+		saveImage, err = SaveImageRequest(imageName)
+		if err != nil {
+			fmt.Println(err.Error())
+			return false, ""
+		}
+		time.Sleep(time.Second * 5)
+	}
+	return true, saveImage.URL
+}
+
 func main() {
 	printBanner()
 	image := flag.String("i", "", "Image to download")
@@ -64,51 +105,28 @@ func main() {
 	imageName := *image
 	fmt.Println("Downloading image: " + imageName)
 
-	pullImage, err := PullImageRequest(imageName)
-
-	if err != nil {
-		fmt.Println(err.Error())
-		os.Exit(1)
-	}
 	spinner := startSpinner("Downloading image")
-	for pullImage.Status != "Downloaded" {
-		if pullImage.Status == "Error" {
-			fmt.Println("\nCan not pull image")
-			os.Exit(1)
-		}
-		pullImage, err = PullImageRequest(imageName)
-		if err != nil {
-			fmt.Println(err.Error())
-			os.Exit(1)
-		}
-		time.Sleep(time.Second * 10)
+	pulledImage := pullImage(imageName)
+	for !pulledImage {
+		fmt.Println("Retrying...")
+		time.Sleep(time.Second * 3)
+		pulledImage = pullImage(imageName)
 	}
 	stopSpinner(spinner, "Image downloaded on remote host")
 
-	saveImage, err := SaveImageRequest(imageName)
-
-	if err != nil {
-		fmt.Println(err.Error())
-		os.Exit(1)
+	savedImage, url := saveImage(imageName)
+	for !savedImage {
+		fmt.Println("Retrying...")
+		time.Sleep(time.Second * 3)
+		savedImage, url = saveImage(imageName)
 	}
 	spinner = startSpinner("Saving image")
-	for saveImage.Status != "Ready" {
-		if pullImage.Status == "Error" {
-			fmt.Println("\nCan not save image")
-			os.Exit(1)
-		}
-		saveImage, err = SaveImageRequest(imageName)
-		if err != nil {
-			fmt.Println(err.Error())
-			os.Exit(1)
-		}
-		time.Sleep(time.Second * 10)
-	}
+
 	stopSpinner(spinner, "Image saved and compressed on remote host")
 
-	download := downloadFile(ServiceURL + saveImage.URL)
+	download := downloadFile(ServiceURL + url)
 	for !download {
 		fmt.Println("Retrying download...")
-		download = downloadFile(ServiceURL + saveImage.URL)
+		download = downloadFile(ServiceURL + url)
 	}
 }
