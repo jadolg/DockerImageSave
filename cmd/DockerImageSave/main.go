@@ -106,5 +106,9 @@ func main() {
 	}
 	stopSpinner(spinner, "Image saved and compressed on remote host")
 
-	downloadFile(ServiceURL + saveImage.URL)
+	download := downloadFile(ServiceURL + saveImage.URL)
+	for !download {
+		fmt.Println("Retrying download...")
+		download = downloadFile(ServiceURL + saveImage.URL)
+	}
 }
