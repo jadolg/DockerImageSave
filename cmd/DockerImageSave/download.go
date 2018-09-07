@@ -30,7 +30,7 @@ Loop:
 	for {
 		select {
 		case <-t.C:
-			fmt.Printf("  transferred %v / %v (%.2f%%)\r",
+			fmt.Printf("  transferred %v / %v (%.2f%%)\t\t\r",
 				humanize.Bytes(uint64(resp.BytesComplete())),
 				humanize.Bytes(uint64(resp.Size)),
 				100*resp.Progress())
