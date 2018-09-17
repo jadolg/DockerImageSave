@@ -12,6 +12,7 @@ import (
 func downloadFile(afile string) bool {
 	client := grab.NewClient()
 	req, _ := grab.NewRequest(".", afile)
+	req.NoResume = false
 
 	// start download
 	fmt.Printf("Downloading %v...\n", req.URL())
