@@ -104,7 +104,7 @@ func main() {
 	fmt.Println("Using server: " + ServiceURL)
 
 	imageName := *image
-	if match, _ := regexp.MatchString("(.*/)?.+:.+", imageName); !match || strings.Count(imageName, "/") != 1 {
+	if match, _ := regexp.MatchString("(.*/)?.+:.+", imageName); !match || strings.Count(imageName, "/") > 1 {
 		fmt.Printf("%s is not a valid image name. Use image:tag or user/image:tag\nOnly DockerHub images supported so far.\n", imageName)
 		os.Exit(1)
 	}
