@@ -35,7 +35,7 @@ func TestImageExistsInRegistry(t *testing.T) {
 		t.Fail()
 	}
 
-	notExists, err2 := ImageExistsInRegistry("qweqwe")
+	notExists, err2 := ImageExistsInRegistry("qweqwe:1")
 	if err2 != nil || notExists {
 		t.Fail()
 	}
