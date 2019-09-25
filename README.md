@@ -5,3 +5,6 @@ This package consists of two commands.
 
 ## Why?
 Cuba is actively blocked by Docker and this makes difficult to obtain docker images since there is no direct access to the registry, also Cuba's internet access is restricted and slow in most cases, so a way to download this images that can be resumed is needed by thousands of developers.
+
+## Official Docker image
+Docker image is being deployed with the CI as `guamulo/dockerimagesave`
