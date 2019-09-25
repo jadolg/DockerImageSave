@@ -10,7 +10,6 @@ WORKDIR /go/src/github.com/jadolg/DockerImageSave/
 RUN dep ensure
 
 RUN go build github.com/jadolg/DockerImageSave/cmd/DockerImageSaveServer
-RUN go build github.com/jadolg/DockerImageSave/cmd/DockerImageSave
-RUN GOOS=windows go build github.com/jadolg/DockerImageSave/cmd/DockerImageSave
+RUN /bin/sh build_executables.sh
 
 ENTRYPOINT [ "./DockerImageSaveServer" ]

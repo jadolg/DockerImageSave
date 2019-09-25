@@ -5,6 +5,6 @@ script:
   - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
   - docker push guamulo/dockerimagesave:${TRAVIS_BUILD_NUMBER}
   - id=$(docker create guamulo/dockerimagesave:${TRAVIS_BUILD_NUMBER})
-  - docker cp ${id}:/go/src/github.com/jadolg/DockerImageSave/DockerImageSave .
-  - docker cp ${id}:/go/src/github.com/jadolg/DockerImageSave/DockerImageSave.exe .
+  - docker cp ${id}:/executables/DockerImageSave-linux-amd64 .
+  - docker cp ${id}:/executables/DockerImageSave-windows-amd64.exe .
   - docker rm -v ${id}
