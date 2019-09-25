@@ -20,4 +20,4 @@ deploy:
     - "DockerImageSave-windows-amd64.exe"
   skip_cleanup: true
   on:
-    repo: jadolg/DockerImageSave
+    tags: true
