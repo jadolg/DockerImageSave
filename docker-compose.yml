@@ -4,7 +4,7 @@ services:
     build: .
     ports: 
       - 6060:6060
-    image: dockerimagesave
+    image: guamulo/dockerimagesave:${TRAVIS_BUILD_NUMBER}
     volumes: 
       - /var/run/docker.sock:/var/run/docker.sock:rw
     restart: always
