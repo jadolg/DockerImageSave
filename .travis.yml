@@ -18,5 +18,6 @@ deploy:
     - "DockerImageSave-linux-amd64"
     - "DockerImageSave-darwin-amd64"
     - "DockerImageSave-windows-amd64.exe"
+  skip_cleanup: true
   on:
     repo: jadolg/DockerImageSave
