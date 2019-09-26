@@ -1,7 +1,7 @@
-FROM golang:1.11.0-alpine3.8
+FROM golang:1.12-buster
 
-RUN apk update
-RUN apk add git
+RUN apt update
+RUN apt install -y git
 RUN go get -u github.com/golang/dep/...
 
 COPY . /go/src/github.com/jadolg/DockerImageSave/
@@ -10,6 +10,6 @@ WORKDIR /go/src/github.com/jadolg/DockerImageSave/
 RUN dep ensure
 
 RUN go build github.com/jadolg/DockerImageSave/cmd/DockerImageSaveServer
-RUN /bin/sh build_executables.sh
+RUN /bin/bash build_executables.sh
 
-ENTRYPOINT [ "./DockerImageSaveServer" ]
+CMD [ "./DockerImageSaveServer" ]
