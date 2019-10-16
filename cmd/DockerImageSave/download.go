@@ -9,7 +9,7 @@ import (
 	"github.com/dustin/go-humanize"
 )
 
-func downloadFile(afile string) bool {
+func downloadFile(afile string, animateProgress bool) bool {
 	client := grab.NewClient()
 	req, _ := grab.NewRequest(".", afile)
 	req.SkipExisting = false
@@ -32,10 +32,12 @@ Loop:
 	for {
 		select {
 		case <-t.C:
-			fmt.Printf("  transferred %v / %v (%.2f%%)\t\t\r",
-				humanize.Bytes(uint64(resp.BytesComplete())),
-				humanize.Bytes(uint64(resp.Size)),
-				100*resp.Progress())
+			if animateProgress {
+				fmt.Printf("  transferred %v / %v (%.2f%%)\t\t\r",
+					humanize.Bytes(uint64(resp.BytesComplete())),
+					humanize.Bytes(uint64(resp.Size)),
+					100*resp.Progress())
+			}
 
 		case <-resp.Done:
 			// download is complete

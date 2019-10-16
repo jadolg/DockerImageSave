@@ -14,19 +14,25 @@ import (
 
 // ServiceURL URL of the service with trailing /
 var ServiceURL = "https://docker-image-save.aleph.engineering/"
+var showAnimations = false
 
 func startSpinner(message string) *spinner.Spinner {
-	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
-	s.Suffix = " " + message
-	s.Color("magenta")
-	s.Start()
-	time.Sleep(4 * time.Second)
-	return s
+	if showAnimations {
+		s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
+		s.Suffix = " " + message
+		s.Color("magenta")
+		s.Start()
+		time.Sleep(4 * time.Second)
+		return s
+	}
+	return nil
 }
 
 func stopSpinner(s *spinner.Spinner, message string) {
-	s.Stop()
-	emoji.Println(":ok: " + message)
+	if showAnimations {
+		s.Stop()
+		emoji.Println(":ok: " + message)
+	}
 }
 
 func printBanner() {
@@ -82,11 +88,17 @@ func saveImage(imageName string) (bool, string) {
 }
 
 func main() {
-	printBanner()
 	image := flag.String("i", "", "Image to download")
 	server := flag.String("s", ServiceURL, "URL of the Docker Image Download Server")
+	showAnimationsFlag := flag.String("a", "true", "Show animations and decorations")
 
 	flag.Parse()
+
+	showAnimations = *showAnimationsFlag == "true"
+
+	if showAnimations {
+		printBanner()
+	}
 
 	if *image == "" {
 		fmt.Println("You must specify an image to download.\nUse -h to see application details.")
@@ -129,9 +141,9 @@ func main() {
 
 	stopSpinner(spinner, "Image saved and compressed on remote host")
 
-	download := downloadFile(ServiceURL + url)
+	download := downloadFile(ServiceURL+url, showAnimations)
 	for !download {
 		fmt.Println("Retrying download...")
-		download = downloadFile(ServiceURL + url)
+		download = downloadFile(ServiceURL+url, showAnimations)
 	}
 }
