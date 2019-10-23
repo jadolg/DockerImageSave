@@ -4,7 +4,7 @@ script:
 - docker-compose build
 - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
 - docker run --rm -v /var/run/docker.sock:/var/run/docker.sock:rw -it guamulo/dockerimagesave:${TRAVIS_BUILD_NUMBER} go test
-- docker push guamulo/dockerimagesave:${TRAVIS_BUILD_NUMBER}
+- if [[ `git rev-parse --abbrev-ref HEAD` == master ]]; docker push guamulo/dockerimagesave:${TRAVIS_BUILD_NUMBER}; fi
 - id=$(docker create guamulo/dockerimagesave:${TRAVIS_BUILD_NUMBER})
 - docker cp ${id}:/executables/DockerImageSave-linux-amd64 .
 - docker cp ${id}:/executables/DockerImageSave-darwin-amd64 .
