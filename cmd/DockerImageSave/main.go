@@ -90,11 +90,12 @@ func saveImage(imageName string) (bool, string) {
 func main() {
 	image := flag.String("i", "", "Image to download")
 	server := flag.String("s", ServiceURL, "URL of the Docker Image Download Server")
-	showAnimationsFlag := flag.String("a", "true", "Show animations and decorations")
+	noAnimations := flag.Bool("no-animations", false, "Hide animations and decorations")
+	noDownload := flag.Bool("no-download", false, "Do all the work but downloading the image")
 
 	flag.Parse()
 
-	showAnimations = *showAnimationsFlag == "true"
+	showAnimations = !*noAnimations
 
 	if showAnimations {
 		printBanner()
@@ -131,19 +132,22 @@ func main() {
 	}
 	stopSpinner(spinner, "Image downloaded on remote host")
 
+	spinner = startSpinner("Saving image")
 	savedImage, url := saveImage(imageName)
 	for !savedImage {
 		fmt.Println("Retrying...")
 		time.Sleep(time.Second * 3)
 		savedImage, url = saveImage(imageName)
 	}
-	spinner = startSpinner("Saving image")
 
 	stopSpinner(spinner, "Image saved and compressed on remote host")
 
-	download := downloadFile(ServiceURL+url, showAnimations)
-	for !download {
-		fmt.Println("Retrying download...")
-		download = downloadFile(ServiceURL+url, showAnimations)
+	fmt.Println(ServiceURL + url)
+	if !*noDownload {
+		download := downloadFile(ServiceURL+url, showAnimations)
+		for !download {
+			fmt.Println("Retrying download...")
+			download = downloadFile(ServiceURL+url, showAnimations)
+		}
 	}
 }
