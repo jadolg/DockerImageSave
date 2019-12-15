@@ -2,9 +2,10 @@ services:
 - docker
 script:
 - docker-compose build
+- docker tag guamulo/dockerimagesave:${TRAVIS_BUILD_NUMBER} guamulo/dockerimagesave:latest
 - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
 - docker run --rm -v /var/run/docker.sock:/var/run/docker.sock:rw -it guamulo/dockerimagesave:${TRAVIS_BUILD_NUMBER} go test
-- if [[ `git rev-parse --abbrev-ref HEAD` == master ]]; then docker push guamulo/dockerimagesave:${TRAVIS_BUILD_NUMBER}; fi
+- if [[ `git rev-parse --abbrev-ref HEAD` == master ]]; then docker push guamulo/dockerimagesave:${TRAVIS_BUILD_NUMBER}; docker push guamulo/dockerimagesave:latest; fi
 - id=$(docker create guamulo/dockerimagesave:${TRAVIS_BUILD_NUMBER})
 - docker cp ${id}:/executables/DockerImageSave-linux-amd64 .
 - docker cp ${id}:/executables/DockerImageSave-darwin-amd64 .
