@@ -3,10 +3,10 @@ services:
 script:
 - docker-compose build
 - docker tag guamulo/dockerimagesave:${TRAVIS_BUILD_NUMBER} guamulo/dockerimagesave:latest
-- echo working on branch `git rev-parse --abbrev-ref HEAD`
-- if [[ `git rev-parse --abbrev-ref HEAD` == master ]]; then echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin; fi
+- echo working on branch ${TRAVIS_BRANCH}
+- if [[ ${TRAVIS_BRANCH} == master ]]; then echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin; fi
 - docker run --rm -v /var/run/docker.sock:/var/run/docker.sock:rw -it guamulo/dockerimagesave:${TRAVIS_BUILD_NUMBER} go test
-- if [[ `git rev-parse --abbrev-ref HEAD` == master ]]; then docker push guamulo/dockerimagesave:${TRAVIS_BUILD_NUMBER}; docker push guamulo/dockerimagesave:latest; fi
+- if [[ ${TRAVIS_BRANCH} == master ]]; then docker push guamulo/dockerimagesave:${TRAVIS_BUILD_NUMBER}; docker push guamulo/dockerimagesave:latest; fi
 - id=$(docker create guamulo/dockerimagesave:${TRAVIS_BUILD_NUMBER})
 - docker cp ${id}:/executables/DockerImageSave-linux-amd64 .
 - docker cp ${id}:/executables/DockerImageSave-darwin-amd64 .
