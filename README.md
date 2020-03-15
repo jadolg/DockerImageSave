@@ -9,6 +9,40 @@ Cuba is actively blocked by Docker and this makes difficult to obtain docker ima
 ## Official Docker image
 Docker image is being deployed with the CI as `guamulo/dockerimagesave`
 
+## How to use the client:
+
+### Download
+
+Download it for your distribution from the releases page on GitHub (https://github.com/jadolg/DockerImageSave/releases).
+Not there? Create an issue and I'll start shipping specially for you ;-)
+
+### Help
+
+The client comes with help included. Please use it ;-)
+
+```
+# ./DockerImageSave-linux-amd64 -h
+Usage of ./DockerImageSave-linux-amd64:
+  -i string
+        Image to download
+  -no-animations
+        Hide animations and decorations
+  -no-download
+        Do all the work but downloading the image
+  -s string
+        URL of the Docker Image Download Server (default "https://docker-image-save.aleph.engineering/")
+
+```
+
+If you are using it from a script I recommend to use the `-no-animations` flag to make it less noisy.
+Also if planning to use curl for downloading you might want to use the `-no-download` flag.
+
+## How to use the server
+
+You are able and encouraged to deploy your own server. The best way to use it is of course the docker version.
+Just run `docker run -p 6060:6060 -v /var/run/docker.sock:/var/run/docker.sock:rw -d guamulo/dockerimagesave:latest`.
+There are no "official" builds of the server as a binary.
+
 ## API Documentation
 
 Want to write yor own client? Here is what you need to know.
