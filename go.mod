@@ -12,4 +12,5 @@ require (
 	github.com/gorilla/mux v1.7.3
 	github.com/kyokomi/emoji v2.1.0+incompatible
 	github.com/shirou/gopsutil v2.19.9+incompatible
+	github.com/shirou/w32 v0.0.0-20160930032740-bb4de0191aa4 // indirect
 )
