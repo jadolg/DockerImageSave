@@ -11,7 +11,11 @@ import (
 
 func downloadFile(afile string, animateProgress bool) bool {
 	client := grab.NewClient()
-	req, _ := grab.NewRequest(".", afile)
+	pwd, err := os.Getwd()
+	if err != nil {
+		return false
+	}
+	req, _ := grab.NewRequest(pwd, afile)
 	req.SkipExisting = false
 	req.NoResume = false
 
