@@ -1,4 +1,4 @@
-FROM golang:1.12-buster
+FROM golang:1.14-buster
 
 ENV GO111MODULE=on
 COPY . /go/src/github.com/jadolg/DockerImageSave/
