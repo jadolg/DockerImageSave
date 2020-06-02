@@ -1,0 +1,24 @@
+name: docker-image-save
+version: '1.5'
+summary: Download zip compressed Docker images.
+description: |
+  DockerImageSave will download Docker images from Dockerhub using a 3rd party server. Can be used in countries with restricted access to Dockerhub.
+
+confinement: classic
+base: core18
+
+parts:
+  docker-image-save:
+    plugin: go
+    go-importpath: github.com/jadolg/DockerImageSave
+    source: https://github.com/jadolg/DockerImageSave
+    source-type: git
+    build-packages:
+      - gcc
+
+apps:
+  docker-image-save:
+    command: bin/DockerImageSave
+
+  docker-image-save-server:
+    command: bin/DockerImageSaveServer
