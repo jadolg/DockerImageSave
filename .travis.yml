@@ -1,11 +1,14 @@
+language: go
+go:
+- "1.14"
 services:
 - docker
 script:
+- go test
 - docker-compose build
 - docker tag guamulo/dockerimagesave:${TRAVIS_BUILD_NUMBER} guamulo/dockerimagesave:latest
 - echo working on branch ${TRAVIS_BRANCH}
 - if [[ ${TRAVIS_BRANCH} == master ]]; then echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin; fi
-- docker run --rm -v /var/run/docker.sock:/var/run/docker.sock:rw -it guamulo/dockerimagesave:${TRAVIS_BUILD_NUMBER} go test
 - if [[ ${TRAVIS_BRANCH} == master ]]; then docker push guamulo/dockerimagesave:${TRAVIS_BUILD_NUMBER}; docker push guamulo/dockerimagesave:latest; fi
 - id=$(docker create guamulo/dockerimagesave:${TRAVIS_BUILD_NUMBER})
 - docker cp ${id}:/executables/DockerImageSave-linux-amd64 .
