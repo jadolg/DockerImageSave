@@ -23,9 +23,3 @@ apps:
       - home
       - removable-media
       - network
-
-  docker-image-save-server:
-    command: bin/DockerImageSaveServer
-    plugs:
-      - network-bind
-      - docker
