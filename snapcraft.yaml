@@ -4,7 +4,7 @@ summary: Download zip compressed Docker images.
 description: |
   DockerImageSave will download Docker images from Dockerhub using a 3rd party server. Can be used in countries with restricted access to Dockerhub.
 
-confinement: classic
+confinement: strict
 base: core18
 
 parts:
@@ -19,6 +19,13 @@ parts:
 apps:
   docker-image-save:
     command: bin/DockerImageSave
+    plugs:
+      - home
+      - removable-media
+      - network
 
   docker-image-save-server:
     command: bin/DockerImageSaveServer
+    plugs:
+      - network-bind
+      - docker
