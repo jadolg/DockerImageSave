@@ -16,6 +16,12 @@ Docker image is being deployed with the CI as `guamulo/dockerimagesave`
 Download it for your distribution from the releases page on GitHub (https://github.com/jadolg/DockerImageSave/releases).
 Not there? Create an issue and I'll start shipping specially for you ;-)
 
+or
+
+### Install as a snap (https://snapcraft.io/docker-image-save)
+
+`snap install docker-image-save` 
+
 ### Help
 
 The client comes with help included. Please use it ;-)
