@@ -13,7 +13,7 @@ import (
 )
 
 // ServiceURL URL of the service with trailing /
-var ServiceURL = "https://docker-image-save.aleph.engineering/"
+var ServiceURL = "https://dockerimagesave.copincha.org/"
 var showAnimations = false
 
 func startSpinner(message string) *spinner.Spinner {
@@ -41,7 +41,7 @@ func printBanner() {
 | . \ ___  ___ | |__ ___  _ _  | |._ _ _  ___  ___  ___  | . \ ___  _ _ _ ._ _ | | ___  ___  _| | ___  _ _ 
 | | |/ . \/ | '| / // ._>| '_> | || ' ' |<_> |/ . |/ ._> | | |/ . \| | | || ' || |/ . \<_> |/ . |/ ._>| '_>
 |___/\___/\_|_.|_\_\\___.|_|   |_||_|_|_|<___|\_. |\___. |___/\___/|__/_/ |_|_||_|\___/<___|\___|\___.|_|  
-                                              <___'    Sponsored by Cuban.Engineer [https://cuban.engineer]
+                                              <___'    by Cuban developers for Cuban developers
 	`
 	fmt.Println(banner)
 }
