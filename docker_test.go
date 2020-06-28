@@ -17,7 +17,7 @@ func TestSaveImage(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-	if _, err := os.Stat("/tmp/busybox:1.29.2.tar"); os.IsNotExist(err) {
+	if _, err := os.Stat("/tmp/busybox_1.29.2.tar"); os.IsNotExist(err) {
 		t.Fail()
 	}
 }
