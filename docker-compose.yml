@@ -1,10 +1,29 @@
 version: "3"
-services: 
+services:
   dockerimagesave:
-    build: .
-    ports: 
-      - 6060:6060
-    image: guamulo/dockerimagesave:${TRAVIS_BUILD_NUMBER}
-    volumes: 
-      - /var/run/docker.sock:/var/run/docker.sock:rw
+    image: guamulo/dockerimagesave
     restart: always
+    ports:
+      - "127.0.0.1:6060:6060"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /root/images:/tmp
+    container_name: dockerimagesave
+
+  watchtower:
+    image: containrrr/watchtower
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  caddy:
+    image: caddy
+    links:
+      - dockerimagesave
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./CaddyData:/data/

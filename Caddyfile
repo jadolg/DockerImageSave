@@ -1,0 +1,2 @@
+localhost, dockerimagesave.yourdomain.com
+reverse_proxy dockerimagesave:6060
