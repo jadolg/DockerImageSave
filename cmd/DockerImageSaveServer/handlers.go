@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/jadolg/DockerImageSave"
@@ -61,11 +62,12 @@ func SaveImageHandler(w http.ResponseWriter, r *http.Request) {
 
 	user := params["user"]
 	imageID := params["id"]
-	imageName := imageID
+	cleanImageID := strings.Replace(imageID, ":", "_", 1)
+	imageName := cleanImageID
 
 	if user != "" {
 		imageID = user + "/" + imageID
-		imageName = user + "_" + params["id"]
+		imageName = user + "_" + imageName
 	}
 
 	imageExists, err := dockerimagesave.ImageExists(imageID)

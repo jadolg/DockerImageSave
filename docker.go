@@ -32,6 +32,7 @@ func SaveImage(imageid string, folder string) error {
 		return err
 	}
 	imageFileName := strings.Replace(imageid, "/", "_", 1)
+	imageFileName = strings.Replace(imageid, ":", "_", 1)
 	f, err := os.Create(folder + "/" + imageFileName + ".tar")
 	if err != nil {
 		return err
