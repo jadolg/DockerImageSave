@@ -54,11 +54,6 @@ Loop:
 		fmt.Fprintf(os.Stderr, "Download failed: %v\n", err)
 		return false
 	}
-	//newName := pwd + strings.ReplaceAll(strings.Replace(resp.Filename, pwd, "", 1), ":", "_") // it might break on windows if we don't clean the path first
-	//err = os.Rename(resp.Filename, newName)
-	//if err != nil {
-	//	fmt.Printf("Problems renaming file %v \n", resp.Filename)
-	//}
 	fmt.Printf("Download saved to %v \n", resp.Filename)
 	return true
 }
