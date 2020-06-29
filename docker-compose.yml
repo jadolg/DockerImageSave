@@ -1,7 +1,9 @@
 version: "3"
 services:
   dockerimagesave:
-    image: guamulo/dockerimagesave
+    image: guamulo/dockerimagesave:${TRAVIS_BUILD_NUMBER}
+    build:
+      context: .
     restart: always
     ports:
       - "127.0.0.1:6060:6060"
