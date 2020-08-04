@@ -1,0 +1,5 @@
+runner:
+  golint:
+    cmd: golint ./...
+  govet:
+    cmd: go vet -all .
