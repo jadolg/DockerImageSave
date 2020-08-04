@@ -13,10 +13,7 @@ jobs:
       - name: golangci-lint
         uses: reviewdog/action-golangci-lint@v1
         with:
-          # Can pass --config flag to change golangci-lint behavior and target
-          # directory.
-          golangci_lint_flags: "--config=.github/.golangci.yml ./testdata"
-          workdir: subdirectory/
+          golangci_lint_flags: "--enable-all --exclude-use-default=false"
 
   # Use golint via golangci-lint binary with "warning" level.
   golint:
