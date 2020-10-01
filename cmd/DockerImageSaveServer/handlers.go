@@ -25,6 +25,7 @@ func PullImageHandler(w http.ResponseWriter, r *http.Request) {
 	imageExists, err := dockerimagesave.ImageExists(imageID)
 	if err != nil {
 		log.Printf("Error checking if image '%s' exists locally", imageID)
+		errorsTotalMetric.Inc()
 		json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Error: err.Error(), Status: "Error"})
 		return
 	}
@@ -42,12 +43,14 @@ func PullImageHandler(w http.ResponseWriter, r *http.Request) {
 					json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Error: err2.Error(), Status: "Error"})
 					return
 				}
+				pullsCountMetric.Inc()
 			}()
 			log.Printf("Responding image '%s' is still being downloaded.", imageID)
 			json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Status: "Downloading"})
 			return
 		}
 		log.Printf("Image '%s' does not exist in registry.", imageID)
+		errorsTotalMetric.Inc()
 		json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Error: "Can't find image in DockerHub", Status: "Error"})
 		return
 	}
@@ -72,6 +75,7 @@ func SaveImageHandler(w http.ResponseWriter, r *http.Request) {
 
 	imageExists, err := dockerimagesave.ImageExists(imageID)
 	if err != nil {
+		errorsTotalMetric.Inc()
 		json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Error: err.Error()})
 		return
 	}
@@ -95,10 +99,12 @@ func SaveImageHandler(w http.ResponseWriter, r *http.Request) {
 			go func() {
 				err := dockerimagesave.SaveImage(imageID, downloadsFolder)
 				if err != nil {
+					errorsTotalMetric.Inc()
 					log.Println(err)
 				}
 				err = dockerimagesave.ZipFiles(downloadsFolder+"/"+imageName+".tar.zip", []string{downloadsFolder + "/" + imageName + ".tar"})
 				if err != nil {
+					errorsTotalMetric.Inc()
 					log.Println(err)
 				}
 				os.Remove(downloadsFolder + "/" + imageName + ".tar")
@@ -113,6 +119,7 @@ func SaveImageHandler(w http.ResponseWriter, r *http.Request) {
 
 	} else {
 		log.Printf("Image '%s' has to be pulled before it's saved", imageID)
+		errorsTotalMetric.Inc()
 		json.NewEncoder(w).Encode(dockerimagesave.SaveResponse{ID: imageID, Error: "Image has to be pulled first", Status: "Error"})
 	}
 }
