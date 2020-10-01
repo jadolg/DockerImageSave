@@ -65,7 +65,7 @@ func ImageExists(imageid string) (bool, error) {
 
 // ImageExistsInRegistry determines if an image exists in the docker registry
 func ImageExistsInRegistry(imageid string) (bool, error) {
-	if strings.Index(imageid, ":") < 0 {
+	if !strings.Contains(imageid, ":") {
 		return false, errors.New("The use of a Tag is obligatory")
 	}
 	imageAndTag := strings.Split(imageid, ":")

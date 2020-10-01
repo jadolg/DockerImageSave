@@ -26,7 +26,7 @@ func PullImageHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("Error checking if image '%s' exists locally", imageID)
 		errorsTotalMetric.Inc()
-		json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Error: err.Error(), Status: "Error"})
+		_ = json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Error: err.Error(), Status: "Error"})
 		return
 	}
 
@@ -40,23 +40,23 @@ func PullImageHandler(w http.ResponseWriter, r *http.Request) {
 			go func() {
 				err2 := dockerimagesave.PullImage(imageID)
 				if err2 != nil {
-					json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Error: err2.Error(), Status: "Error"})
+					_ = json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Error: err2.Error(), Status: "Error"})
 					return
 				}
 				pullsCountMetric.Inc()
 			}()
 			log.Printf("Responding image '%s' is still being downloaded.", imageID)
-			json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Status: "Downloading"})
+			_ = json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Status: "Downloading"})
 			return
 		}
 		log.Printf("Image '%s' does not exist in registry.", imageID)
 		errorsTotalMetric.Inc()
-		json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Error: "Can't find image in DockerHub", Status: "Error"})
+		_ = json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Error: "Can't find image in DockerHub", Status: "Error"})
 		return
 	}
 
 	log.Printf("Image '%s' was already pulled.", imageID)
-	json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Status: "Downloaded"})
+	_ = json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Status: "Downloaded"})
 }
 
 // SaveImageHandler handles saving a docker image
@@ -76,7 +76,7 @@ func SaveImageHandler(w http.ResponseWriter, r *http.Request) {
 	imageExists, err := dockerimagesave.ImageExists(imageID)
 	if err != nil {
 		errorsTotalMetric.Inc()
-		json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Error: err.Error()})
+		_ = json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Error: err.Error()})
 		return
 	}
 
@@ -86,7 +86,7 @@ func SaveImageHandler(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Image '%s' has already being pulled.", imageID)
 		if !dockerimagesave.FileExists(downloadsFolder+"/"+imageName+".tar") && dockerimagesave.FileExists(downloadsFolder+"/"+imageName+".tar.zip") {
 			log.Printf("Image '%s' is ready to be downloaded.", imageID)
-			json.NewEncoder(w).Encode(dockerimagesave.SaveResponse{ID: imageID,
+			_ = json.NewEncoder(w).Encode(dockerimagesave.SaveResponse{ID: imageID,
 				URL:    "download/" + imageName + ".tar.zip",
 				Size:   dockerimagesave.GetFileSize(downloadsFolder + "/" + imageName + ".tar.zip"),
 				Status: "Ready",
@@ -107,25 +107,28 @@ func SaveImageHandler(w http.ResponseWriter, r *http.Request) {
 					errorsTotalMetric.Inc()
 					log.Println(err)
 				}
-				os.Remove(downloadsFolder + "/" + imageName + ".tar")
+				err = os.Remove(downloadsFolder + "/" + imageName + ".tar")
+				if err != nil {
+					log.Print(err)
+				}
 				log.Printf("Removed uncompressed image file '%s'", downloadsFolder+"/"+imageName+".tar")
 			}()
 		}
 
 		log.Printf("Responding image '%s' is still being saved.", imageID)
-		json.NewEncoder(w).Encode(dockerimagesave.SaveResponse{ID: imageID,
+		_ = json.NewEncoder(w).Encode(dockerimagesave.SaveResponse{ID: imageID,
 			URL:    "download/" + imageName + ".tar.zip",
 			Status: "Saving"})
 
 	} else {
 		log.Printf("Image '%s' has to be pulled before it's saved", imageID)
 		errorsTotalMetric.Inc()
-		json.NewEncoder(w).Encode(dockerimagesave.SaveResponse{ID: imageID, Error: "Image has to be pulled first", Status: "Error"})
+		_ = json.NewEncoder(w).Encode(dockerimagesave.SaveResponse{ID: imageID, Error: "Image has to be pulled first", Status: "Error"})
 	}
 }
 
 // HealthCheckHandler responds with data about the host
-func HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
+func HealthCheckHandler(w http.ResponseWriter, _ *http.Request) {
 	memory, err1 := mem.VirtualMemory()
 	host, err2 := host.Info()
 	errorMsg := ""
@@ -135,7 +138,7 @@ func HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	if err2 != nil {
 		errorMsg = err2.Error()
 	}
-	json.NewEncoder(w).Encode(
+	_ = json.NewEncoder(w).Encode(
 		dockerimagesave.HealthCheckResponse{
 			Memory:     memory.Total,
 			UsedMemory: memory.Used,
