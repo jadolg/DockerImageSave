@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"github.com/gorilla/mux"
 )
 
@@ -38,6 +40,7 @@ func main() {
 	router.PathPrefix("/download/").Handler(http.StripPrefix("/download/",
 		http.FileServer(http.Dir(downloadsFolder))))
 	router.HandleFunc("/healthcheck", HealthCheckHandler).Methods("GET")
+	router.Handle("/metrics", promhttp.Handler()).Methods("GET")
 	fmt.Println("Listening on port " + *port)
 	fmt.Println("Downloading files on " + downloadsFolder)
 	log.Fatal(http.ListenAndServe(":"+*port, router))
