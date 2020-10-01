@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"regexp"
 	"strings"
@@ -20,7 +21,10 @@ func startSpinner(message string) *spinner.Spinner {
 	if showAnimations {
 		s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
 		s.Suffix = " " + message
-		s.Color("magenta")
+		err := s.Color("magenta")
+		if err != nil {
+			log.Print(err)
+		}
 		s.Start()
 		time.Sleep(4 * time.Second)
 		return s
@@ -31,7 +35,7 @@ func startSpinner(message string) *spinner.Spinner {
 func stopSpinner(s *spinner.Spinner, message string) {
 	if showAnimations {
 		s.Stop()
-		emoji.Println(":ok: " + message)
+		_, _ = emoji.Println(":ok: " + message)
 	}
 }
 
