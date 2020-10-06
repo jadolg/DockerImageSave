@@ -1,2 +1,12 @@
-localhost, dockerimagesave.yourdomain.com
-reverse_proxy dockerimagesave:6060
+dockerimagesave.yourdomain.org {
+        reverse_proxy dockerimagesave:6060
+        log {
+                output file /logs/access.log {
+                        roll_size 1gb
+                        roll_keep 5
+                        roll_keep_for 720h
+                }
+                level INFO
+        }
+
+}
