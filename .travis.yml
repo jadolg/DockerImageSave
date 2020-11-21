@@ -9,8 +9,8 @@ script:
 - /bin/bash build_executables.sh
 - docker tag guamulo/dockerimagesave:${TRAVIS_BUILD_NUMBER} guamulo/dockerimagesave:latest
 - echo working on branch ${TRAVIS_BRANCH}
-- if [[ ${TRAVIS_BRANCH} == master ]]; then echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin; fi
-- if [[ ${TRAVIS_BRANCH} == master ]]; then docker push guamulo/dockerimagesave:${TRAVIS_BUILD_NUMBER}; docker push guamulo/dockerimagesave:latest; fi
+- if [[ ${TRAVIS_BRANCH} == master && $(test "$DOCKER_USERNAME" -a "$DOCKER_PASSWORD") ]]; then echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin; fi
+- if [[ ${TRAVIS_BRANCH} == master && $(test "$DOCKER_USERNAME" -a "$DOCKER_PASSWORD") ]]; then docker push guamulo/dockerimagesave:${TRAVIS_BUILD_NUMBER}; docker push guamulo/dockerimagesave:latest; fi
 
 deploy:
   provider: releases
