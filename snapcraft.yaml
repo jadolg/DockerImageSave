@@ -5,12 +5,11 @@ description: |
   DockerImageSave will download Docker images from Dockerhub using a 3rd party server. Can be used in countries with restricted access to Dockerhub.
 
 confinement: strict
-base: core18
+base: core20
 
 parts:
   docker-image-save:
     plugin: go
-    go-importpath: github.com/jadolg/DockerImageSave
     source: https://github.com/jadolg/DockerImageSave
     source-type: git
     build-packages:
