@@ -5,7 +5,7 @@ description: |
   DockerImageSave will download Docker images from Dockerhub using a 3rd party server. Can be used in countries with restricted access to Dockerhub.
 
 confinement: strict
-base: core20
+base: core18
 
 parts:
   docker-image-save:
