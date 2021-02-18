@@ -123,8 +123,7 @@ func main() {
 			log.Fatal(err)
 		}
 
-		var tab tabular.Table
-		tab = tabular.New()
+		tab := tabular.New()
 		tab.Col("name", "Name", 50)
 		tab.Col("description", "Description", 100)
 		tab.Col("stars", "Stars", 5)
