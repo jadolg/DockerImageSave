@@ -77,3 +77,16 @@ func ImageExistsInRegistry(imageid string) (bool, error) {
 	b, _ := ioutil.ReadAll(resp.Body)
 	return string(b) != "\"Resource not found\"" && string(b) != "Tag not found", nil
 }
+
+// Search does a docker search
+func Search(term string) ([]docker.APIImageSearch, error) {
+	dockerClient, err := docker.NewClientFromEnv()
+	if err != nil {
+		return nil, err
+	}
+	imageSearch, err := dockerClient.SearchImages(term)
+	if err != nil {
+		return nil, err
+	}
+	return imageSearch, nil
+}

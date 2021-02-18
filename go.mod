@@ -3,6 +3,7 @@ module github.com/jadolg/DockerImageSave
 go 1.14
 
 require (
+	github.com/InVisionApp/tabular v0.3.0
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/briandowns/spinner v1.7.0
 	github.com/cavaliercoder/grab v2.0.0+incompatible

@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -146,4 +147,22 @@ func HealthCheckHandler(w http.ResponseWriter, _ *http.Request) {
 			Platform:   host.Platform,
 			Error:      errorMsg,
 		})
+}
+
+// SearchHandler handles searching images
+func SearchHandler(w http.ResponseWriter, r *http.Request) {
+	term := r.FormValue("term")
+	term = strings.ReplaceAll(term, " ", "%20")
+	search, err := dockerimagesave.Search(term)
+	if err != nil {
+		log.Printf("error searching for %s", term)
+		errorsTotalMetric.Inc()
+		_ = json.NewEncoder(w).Encode(dockerimagesave.SearchResponse{Term: term, Error: fmt.Sprintf("Error searching for: '%s'", term), Status: "Error"})
+		return
+	}
+	_ = json.NewEncoder(w).Encode(dockerimagesave.SearchResponse{
+		Term:         term,
+		Status:       "OK",
+		SearchResult: search,
+	})
 }
