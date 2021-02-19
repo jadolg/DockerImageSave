@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/InVisionApp/tabular"
 	"github.com/briandowns/spinner"
 	"github.com/kyokomi/emoji"
 )
@@ -96,6 +97,7 @@ func main() {
 	server := flag.String("s", ServiceURL, "URL of the Docker Image Download Server")
 	noAnimations := flag.Bool("no-animations", false, "Hide animations and decorations")
 	noDownload := flag.Bool("no-download", false, "Do all the work but downloading the image")
+	search := flag.String("search", "", "A search query")
 
 	flag.Parse()
 
@@ -105,11 +107,6 @@ func main() {
 		printBanner()
 	}
 
-	if *image == "" {
-		fmt.Println("You must specify an image to download.\nUse -h to see application details.")
-		os.Exit(1)
-	}
-
 	if *server != ServiceURL {
 		if strings.HasSuffix(*server, "/") {
 			ServiceURL = *server
@@ -117,8 +114,34 @@ func main() {
 			ServiceURL = *server + "/"
 		}
 	}
-
 	fmt.Println("Using server: " + ServiceURL)
+
+	if *search != "" {
+		log.Printf("Searching for '%s'", *search)
+		searchResponse, err := SearchRequest(*search)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		tab := tabular.New()
+		tab.Col("name", "Name", 50)
+		tab.Col("description", "Description", 100)
+		tab.Col("stars", "Stars", 5)
+		tab.Col("official", "Official", 5)
+		format := tab.Print("name", "description", "stars", "official")
+		for _, x := range searchResponse.SearchResult {
+			fmt.Printf(format, x.Name, x.Description, x.StarCount, x.IsOfficial)
+		}
+
+		fmt.Println()
+
+		os.Exit(0)
+	}
+
+	if *image == "" {
+		fmt.Println("You must specify an image to download.\nUse -h to see application details.")
+		os.Exit(1)
+	}
 
 	imageName := *image
 	if match, _ := regexp.MatchString("(.*/)?.+:.+", imageName); !match || strings.Count(imageName, "/") > 1 {

@@ -27,7 +27,6 @@ or
 The client comes with help included. Please use it ;-)
 
 ```
-# ./DockerImageSave-linux-amd64 -h
 Usage of ./DockerImageSave-linux-amd64:
   -i string
         Image to download
@@ -37,7 +36,8 @@ Usage of ./DockerImageSave-linux-amd64:
         Do all the work but downloading the image
   -s string
         URL of the Docker Image Download Server (default "https://dockerimagesave.copincha.org/")
-
+  -search string
+        A search query
 ```
 
 If you are using it from a script I recommend to use the `-no-animations` flag to make it less noisy.

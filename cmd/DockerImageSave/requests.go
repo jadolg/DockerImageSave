@@ -2,8 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	dockerimagesave "github.com/jadolg/DockerImageSave"
 )
@@ -42,4 +44,23 @@ func SaveImageRequest(imageid string) (dockerimagesave.SaveResponse, error) {
 	}
 
 	return saveResponse, nil
+}
+
+// SearchRequest is a wrapper around the docker search API
+func SearchRequest(term string) (dockerimagesave.SearchResponse, error) {
+	termWithSpaces := strings.ReplaceAll(term, " ", "%20")
+	resp, err := http.Get(fmt.Sprintf("%s/search?term=%s", ServiceURL, termWithSpaces))
+	if err != nil {
+		return dockerimagesave.SearchResponse{}, err
+	}
+	defer resp.Body.Close()
+	b, _ := ioutil.ReadAll(resp.Body)
+
+	var searchResponse dockerimagesave.SearchResponse
+	err = json.Unmarshal(b, &searchResponse)
+	if err != nil {
+		return dockerimagesave.SearchResponse{}, err
+	}
+
+	return searchResponse, nil
 }
