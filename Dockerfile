@@ -1,12 +1,11 @@
-FROM golang:1.14-buster
+FROM golang:1.16-buster
 
-ENV GO111MODULE=on
 COPY . /go/src/github.com/jadolg/DockerImageSave/
 WORKDIR /go/src/github.com/jadolg/DockerImageSave/
 
-RUN CGO_ENABLED=0 go build github.com/jadolg/DockerImageSave/cmd/DockerImageSaveServer
+RUN CGO_ENABLED=0 go build -ldflags '-w -s' -a -installsuffix cgo github.com/jadolg/DockerImageSave/cmd/DockerImageSaveServer
 
-FROM alpine:3.12
+FROM alpine:3.13
 COPY --from=0 /go/src/github.com/jadolg/DockerImageSave/DockerImageSaveServer /executables/DockerImageSaveServer
 WORKDIR /executables/
 CMD [ "./DockerImageSaveServer" ]
