@@ -11,28 +11,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: wangyoucao577/go-release-action@master
+      - name: Set up Go
+        uses: actions/setup-go@v2
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          goos: linux
-          goarch: amd64
-      - uses: wangyoucao577/go-release-action@master
+          go-version: 1.16
+      - name: Build
+        run: /bin/bash build_executables.sh
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          goos: linux
-          goarch: arm
-      - uses: wangyoucao577/go-release-action@master
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          goos: linux
-          goarch: arm64
-      - uses: wangyoucao577/go-release-action@master
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          goos: windows
-          goarch: amd64
-      - uses: wangyoucao577/go-release-action@master
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          goos: darwin
-          goarch: amd64
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: DockerImageSave-*
+          tag: ${{ github.ref }}
+          overwrite: true
+          file_glob: true
