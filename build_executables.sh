@@ -22,4 +22,5 @@ buildExecutable linux amd64
 buildExecutable linux arm
 buildExecutable linux arm64
 buildExecutable darwin amd64
+buildExecutable darwin arm64
 buildExecutable windows amd64
