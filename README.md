@@ -1,4 +1,7 @@
 # Docker Image Save
+
+[![Go](https://github.com/jadolg/DockerImageSave/actions/workflows/go.yml/badge.svg)](https://github.com/jadolg/DockerImageSave/actions/workflows/go.yml)
+
 This package consists of two commands. 
 * `DockerImageSaveServer` is a server that pulls, saves, compresses and serves via http docker images. Docker has to be installed in the computer this service is deployed. 
 * `DockerImageSave` is the terminal application that talks with `DockerImageSaveServer` and downloads the zip compressed docker images.
