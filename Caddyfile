@@ -1,5 +1,8 @@
 dockerimagesave.yourdomain.org {
         reverse_proxy dockerimagesave:6060
+        header Access-Control-Allow-Methods "GET, OPTIONS"
+        header Access-Control-Allow-Headers "*"
+        header Access-Control-Allow-Origin "*"
         log {
                 output file /logs/access.log {
                         roll_size 1gb
@@ -8,5 +11,4 @@ dockerimagesave.yourdomain.org {
                 }
                 level INFO
         }
-
 }
