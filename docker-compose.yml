@@ -11,6 +11,9 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - /root/images:/tmp
     container_name: dockerimagesave
+    environment:
+      - DOCKER_USER=""
+      - DOCKER_PASSWORD=""
 
   watchtower:
     image: containrrr/watchtower
