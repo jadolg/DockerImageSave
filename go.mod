@@ -9,6 +9,7 @@ require (
 	github.com/briandowns/spinner v1.7.0
 	github.com/cavaliercoder/grab v2.0.0+incompatible
 	github.com/containerd/containerd v1.5.2 // indirect
+	github.com/docker/docker v20.10.7+incompatible
 	github.com/dustin/go-humanize v1.0.0
 	github.com/fsouza/go-dockerclient v1.7.3
 	github.com/go-ole/go-ole v1.2.4 // indirect
@@ -21,7 +22,7 @@ require (
 	github.com/shirou/gopsutil v2.19.9+incompatible
 	github.com/shirou/w32 v0.0.0-20160930032740-bb4de0191aa4 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
-	github.com/stretchr/testify v1.6.1 // indirect
+	github.com/stretchr/testify v1.6.1
 	go.opencensus.io v0.23.0 // indirect
 	golang.org/x/sys v0.0.0-20210611083646-a4fc73990273 // indirect
 )

@@ -2,32 +2,51 @@ package dockerimagesave
 
 import (
 	"bufio"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/client"
+	docker "github.com/fsouza/go-dockerclient"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
-
-	"github.com/fsouza/go-dockerclient"
 )
 
 // PullImage pulls a docker image to local Docker
 func PullImage(imageid string) error {
-	dockerClient, err := docker.NewClientFromEnv()
+	ctx := context.Background()
+	dockerClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return err
 	}
-	opts := docker.PullImageOptions{Repository: imageid}
-	err = dockerClient.PullImage(opts, docker.AuthConfiguration{})
+
+	authConfig := types.AuthConfig{
+		Username: os.Getenv("DOCKER_USER"),
+		Password: os.Getenv("DOCKER_PASSWORD"),
+	}
+	encodedJSON, err := json.Marshal(authConfig)
+	if err != nil {
+		panic(err)
+	}
+	authStr := base64.URLEncoding.EncodeToString(encodedJSON)
+	out, err := dockerClient.ImagePull(ctx, imageid, types.ImagePullOptions{RegistryAuth: authStr})
 	if err != nil {
 		return err
 	}
+	defer out.Close()
+	io.Copy(os.Stdout, out)
 	return nil
 }
 
 // SaveImage saves a docker image as tar file on specified folder
 func SaveImage(imageid string, folder string) error {
-	dockerClient, err := docker.NewClientFromEnv()
+	ctx := context.Background()
+	dockerClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return err
 	}
@@ -39,8 +58,12 @@ func SaveImage(imageid string, folder string) error {
 	}
 	defer f.Close()
 	w := bufio.NewWriter(f)
-	opts := docker.ExportImagesOptions{Names: []string{imageid}, OutputStream: w}
-	if err := dockerClient.ExportImages(opts); err != nil {
+	data, err := dockerClient.ImageSave(ctx, []string{imageid})
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(w, data)
+	if err != nil {
 		return err
 	}
 	w.Flush()
@@ -49,12 +72,15 @@ func SaveImage(imageid string, folder string) error {
 
 // ImageExists checks if image is downloaded
 func ImageExists(imageid string) (bool, error) {
-	dockerClient, err := docker.NewClientFromEnv()
+	ctx := context.Background()
+	dockerClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return false, err
 	}
-
-	imgs, err := dockerClient.ListImages(docker.ListImagesOptions{All: false, Filter: imageid})
+	imgs, err := dockerClient.ImageList(ctx, types.ImageListOptions{
+		All:     false,
+		Filters: filters.Args{},
+	})
 
 	if err != nil {
 		return false, err
