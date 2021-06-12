@@ -39,7 +39,10 @@ func PullImage(imageid string) error {
 		return err
 	}
 	defer out.Close()
-	io.Copy(os.Stdout, out)
+	_, err = io.Copy(os.Stdout, out)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
