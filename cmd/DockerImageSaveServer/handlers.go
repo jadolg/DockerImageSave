@@ -39,8 +39,11 @@ func PullImageHandler(w http.ResponseWriter, r *http.Request) {
 		if err == nil && existsInRegistry {
 			log.Printf("Image '%s' exists in registry. Pulling image.", imageID)
 			go func() {
+				// TODO: This strategy is just plain stupid. Rework into a queue.
 				err2 := dockerimagesave.PullImage(imageID)
 				if err2 != nil {
+					errorsTotalMetric.Inc()
+					log.Printf("Error pullign image %s: %v", imageID, err)
 					_ = json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Error: err2.Error(), Status: "Error"})
 					return
 				}
