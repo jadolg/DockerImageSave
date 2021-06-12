@@ -1,42 +1,36 @@
 package dockerimagesave
 
 import (
-	"os"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 func TestPullImage(t *testing.T) {
 	err := PullImage("busybox:1.29.2")
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 }
 
 func TestSaveImage(t *testing.T) {
 	err := SaveImage("busybox:1.29.2", "/tmp")
-	if err != nil {
-		t.Fail()
-	}
-	if _, err := os.Stat("/tmp/busybox_1.29.2.tar"); os.IsNotExist(err) {
-		t.Fail()
-	}
+	assert.NoError(t, err)
+	assert.FileExists(t, "/tmp/busybox_1.29.2.tar")
 }
 
 func TestImageExists(t *testing.T) {
 	exists, err := ImageExists("busybox:1.29.2")
-	if err != nil || !exists {
-		t.Fail()
-	}
+	assert.True(t, exists)
+	assert.NoError(t, err)
+	exists, err = ImageExists("nothing_here:latest")
+	assert.False(t, exists)
+	assert.NoError(t, err)
 }
 
 func TestImageExistsInRegistry(t *testing.T) {
 	exists, err := ImageExistsInRegistry("busybox:1.29.2")
-	if err != nil || !exists {
-		t.Fail()
-	}
+	assert.True(t, exists)
+	assert.NoError(t, err)
 
-	notExists, err2 := ImageExistsInRegistry("qweqwe:1")
-	if err2 != nil || notExists {
-		t.Fail()
-	}
+	exists, err = ImageExistsInRegistry("qweqwe:1")
+	assert.False(t, exists)
+	assert.NoError(t, err)
 }
