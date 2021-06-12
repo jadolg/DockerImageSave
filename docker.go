@@ -54,13 +54,21 @@ func ImageExists(imageid string) (bool, error) {
 		return false, err
 	}
 
-	imgs, err := dockerClient.ListImages(docker.ListImagesOptions{Filter: imageid})
+	imgs, err := dockerClient.ListImages(docker.ListImagesOptions{All: false, Filter: imageid})
 
 	if err != nil {
 		return false, err
 	}
 
-	return len(imgs) > 0, nil
+	for _, img := range imgs {
+		for _, repotag := range img.RepoTags {
+			if repotag == imageid {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
 }
 
 // ImageExistsInRegistry determines if an image exists in the docker registry
