@@ -25,12 +25,3 @@ type SaveResponse struct {
 	Size   int64  `json:"size,omitempty"`
 	Status string `json:"status,omitempty"`
 }
-
-// HealthCheckResponse is response format for healthcheck method
-type HealthCheckResponse struct {
-	Memory     uint64 `json:"memory,omitempty"`
-	UsedMemory uint64 `json:"used_memory,omitempty"`
-	OS         string `json:"os,omitempty"`
-	Platform   string `json:"platform,omitempty"`
-	Error      string `json:"error,omitempty"`
-}

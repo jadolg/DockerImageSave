@@ -10,8 +10,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/jadolg/DockerImageSave"
-	"github.com/shirou/gopsutil/host"
-	"github.com/shirou/gopsutil/mem"
 )
 
 // PullImageHandler handles pulling a docker image
@@ -133,23 +131,10 @@ func SaveImageHandler(w http.ResponseWriter, r *http.Request) {
 
 // HealthCheckHandler responds with data about the host
 func HealthCheckHandler(w http.ResponseWriter, _ *http.Request) {
-	memory, err1 := mem.VirtualMemory()
-	host, err2 := host.Info()
-	errorMsg := ""
-	if err1 != nil {
-		errorMsg = err1.Error()
+	_, err := fmt.Fprintf(w, "OK")
+	if err != nil {
+		log.Print(err)
 	}
-	if err2 != nil {
-		errorMsg = err2.Error()
-	}
-	_ = json.NewEncoder(w).Encode(
-		dockerimagesave.HealthCheckResponse{
-			Memory:     memory.Total,
-			UsedMemory: memory.Used,
-			OS:         host.OS,
-			Platform:   host.Platform,
-			Error:      errorMsg,
-		})
 }
 
 // SearchHandler handles searching images
