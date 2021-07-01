@@ -70,10 +70,6 @@ func SaveImage(imageid string, folder string) error {
 		return err
 	}
 	w.Flush()
-	_, err = dockerClient.ImageRemove(ctx, imageid, types.ImageRemoveOptions{})
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
