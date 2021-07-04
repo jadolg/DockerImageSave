@@ -15,7 +15,7 @@ import (
 )
 
 // ServiceURL URL of the service with trailing /
-var ServiceURL = "https://dockerimagesave.copincha.org/"
+var ServiceURL = "https://dockerimagesave.akiel.dev/"
 var showAnimations = false
 
 func startSpinner(message string) *spinner.Spinner {

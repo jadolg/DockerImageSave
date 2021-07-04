@@ -38,7 +38,7 @@ Usage of ./DockerImageSave-linux-amd64:
   -no-download
         Do all the work but downloading the image
   -s string
-        URL of the Docker Image Download Server (default "https://dockerimagesave.copincha.org/")
+        URL of the Docker Image Download Server (default "https://dockerimagesave.akiel.dev/")
   -search string
         A search query
 ```
@@ -61,7 +61,7 @@ Want to write yor own client? Here is what you need to know.
 This API call will pull the image to your server. It is exactly the same as doing `docker pull image` on the server.
 - path: **/pull/{id}**
 - method: GET
-- curl: `curl https://dockerimagesave.copincha.org/pull/alpine:latest`
+- curl: `curl https://dockerimagesave.akiel.dev/pull/alpine:latest`
 - response: `{"id":"alpine:latest","status":"Downloaded"}`
 
 Wait for the status to be **Downloaded** so you can save the image for downloading.
@@ -72,7 +72,7 @@ It does not matter how many times you call this endpoint with the same image it 
 This API call will save and compress an already pulled image making it ready for download. 
 - path: **/save/{id}**
 - method: GET
-- curl: `curl https://dockerimagesave.copincha.org/save/alpine:latest`
+- curl: `curl https://dockerimagesave.akiel.dev/save/alpine:latest`
 - response: `{"id":"alpine:latest","url":"download/alpine:latest.tar.zip","size":2214576,"status":"Ready"}`
 
 Wait for the status to be **Ready** so you can download.
@@ -83,7 +83,7 @@ Finally you can download the image doing with the url provided after saving it.
 
 - Path: **/download/{url}**
 - Method: GET
-- curl: `url https://dockerimagesave.copincha.org/download/alpine:latest.tar.zip -o alpine:latest.tar.zip`
+- curl: `url https://dockerimagesave.akiel.dev/download/alpine:latest.tar.zip -o alpine:latest.tar.zip`
 
 ### Loading the image into your local Docker
 - Unzip the downloaded file `unzip alpine\:latest.tar.zip`
