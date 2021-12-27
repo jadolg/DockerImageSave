@@ -4,13 +4,11 @@ go 1.16
 
 require (
 	github.com/InVisionApp/tabular v0.3.0
-	github.com/Microsoft/go-winio v0.5.1 // indirect
 	github.com/Microsoft/hcsshim v0.9.1 // indirect
 	github.com/briandowns/spinner v1.18.0
 	github.com/cavaliercoder/grab v2.0.0+incompatible
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/containerd/cgroups v1.0.2 // indirect
-	github.com/containerd/containerd v1.5.8 // indirect
 	github.com/docker/docker v20.10.12+incompatible
 	github.com/dustin/go-humanize v1.0.0
 	github.com/fatih/color v1.13.0 // indirect
@@ -20,7 +18,6 @@ require (
 	github.com/kyokomi/emoji v2.2.4+incompatible
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/moby/sys/mount v0.3.0 // indirect
-	github.com/opencontainers/image-spec v1.0.2 // indirect
 	github.com/prometheus/client_golang v1.11.0
 	github.com/prometheus/common v0.32.1 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
