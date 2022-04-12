@@ -1,5 +1,5 @@
 #! /bin/bash
-CGO_ENABLED=0
+export CGO_ENABLED=0
 
 function buildExecutable() {
     export GOOS=${1}
