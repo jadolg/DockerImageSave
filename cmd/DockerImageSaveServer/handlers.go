@@ -66,9 +66,10 @@ func SaveImageHandler(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 
 	user := dockerimagesave.Sanitize(params["user"])
+	user = dockerimagesave.RemoveDoubleDots(user)
 	imageID := dockerimagesave.Sanitize(params["id"])
 	cleanImageID := strings.Replace(imageID, ":", "_", 1)
-	imageName := cleanImageID
+	imageName := dockerimagesave.RemoveDoubleDots(cleanImageID)
 
 	if user != "" {
 		imageID = user + "/" + imageID

@@ -55,6 +55,7 @@ func SaveImage(imageid string, folder string) error {
 	}
 	imageFileName := strings.ReplaceAll(imageid, "/", "_")
 	imageFileName = strings.Replace(imageFileName, ":", "_", 1)
+	imageFileName = RemoveDoubleDots(imageFileName)
 	f, err := os.Create(folder + "/" + imageFileName + ".tar")
 	if err != nil {
 		return err

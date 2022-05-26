@@ -10,7 +10,7 @@ import (
 
 // ZipFiles compresses one or many files into a single zip archive file
 func ZipFiles(filename string, files []string) error {
-
+	filename = RemoveDoubleDots(filename)
 	newfile, err := os.Create(filename)
 	if err != nil {
 		return err
@@ -22,8 +22,7 @@ func ZipFiles(filename string, files []string) error {
 
 	// Add files to zip
 	for _, file := range files {
-
-		zipfile, err := os.Open(file)
+		zipfile, err := os.Open(RemoveDoubleDots(file))
 		if err != nil {
 			return err
 		}

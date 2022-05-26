@@ -1,17 +1,14 @@
 package dockerimagesave
 
 import (
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 func TestGetFileSize(t *testing.T) {
-	if GetFileSize("zipfile.go") != 1033 {
-		t.Fail()
-	}
+	assert.Equal(t, int64(1088), GetFileSize("zipfile.go"))
 }
 
 func TestFileExists(t *testing.T) {
-	if !FileExists("zipfile.go") {
-		t.Fail()
-	}
+	assert.True(t, FileExists("zipfile.go"))
 }
