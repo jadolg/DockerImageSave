@@ -16,8 +16,8 @@ import (
 func PullImageHandler(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 
-	user := params["user"]
-	imageID := params["id"]
+	user := dockerimagesave.Sanitize(params["user"])
+	imageID := dockerimagesave.Sanitize(params["id"])
 	if user != "" {
 		imageID = user + "/" + imageID
 	}
@@ -65,8 +65,8 @@ func PullImageHandler(w http.ResponseWriter, r *http.Request) {
 func SaveImageHandler(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 
-	user := params["user"]
-	imageID := params["id"]
+	user := dockerimagesave.Sanitize(params["user"])
+	imageID := dockerimagesave.Sanitize(params["id"])
 	cleanImageID := strings.Replace(imageID, ":", "_", 1)
 	imageName := cleanImageID
 
@@ -140,6 +140,7 @@ func HealthCheckHandler(w http.ResponseWriter, _ *http.Request) {
 // SearchHandler handles searching images
 func SearchHandler(w http.ResponseWriter, r *http.Request) {
 	term := r.FormValue("term")
+	term = dockerimagesave.Sanitize(term)
 	term = strings.ReplaceAll(term, " ", "%20")
 	search, err := dockerimagesave.Search(term)
 	if err != nil {
