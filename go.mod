@@ -54,5 +54,5 @@ require (
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
-	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
+	gopkg.in/yaml.v3 v3.0.0 // indirect
 )
