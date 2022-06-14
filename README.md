@@ -21,7 +21,9 @@ Not there? Create an issue and I'll start shipping specially for you ;-)
 
 or
 
-### Install as a snap (https://snapcraft.io/docker-image-save)
+### Install as a snap
+
+[![Get it from the Snap Store](https://snapcraft.io/static/images/badges/en/snap-store-black.svg)](https://snapcraft.io/docker-image-save)
 
 `snap install docker-image-save` 
 
