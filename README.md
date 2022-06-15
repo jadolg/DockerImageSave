@@ -1,5 +1,7 @@
 # Docker Image Save
 
+![logo](./logo.png)
+
 [![Go](https://github.com/jadolg/DockerImageSave/actions/workflows/go.yml/badge.svg)](https://github.com/jadolg/DockerImageSave/actions/workflows/go.yml)
 
 This package consists of two commands. 
