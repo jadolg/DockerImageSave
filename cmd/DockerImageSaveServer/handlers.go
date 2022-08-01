@@ -52,7 +52,6 @@ func PullImageHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		log.Printf("Image '%s' does not exist in registry.", imageID)
-		errorsTotalMetric.Inc()
 		_ = json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Error: "Can't find image in DockerHub", Status: "Error"})
 		return
 	}
