@@ -42,7 +42,6 @@ func PullImageHandler(w http.ResponseWriter, r *http.Request) {
 				if err2 != nil {
 					errorsTotalMetric.Inc()
 					log.Printf("Error pulling image %s: %v", imageID, err2)
-					_ = json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Error: err2.Error(), Status: "Error"})
 					return
 				}
 				pullsCountMetric.Inc()
