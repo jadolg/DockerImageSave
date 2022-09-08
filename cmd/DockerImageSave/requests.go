@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 
@@ -17,7 +17,7 @@ func PullImageRequest(imageid string) (dockerimagesave.PullResponse, error) {
 		return dockerimagesave.PullResponse{}, err
 	}
 	defer resp.Body.Close()
-	b, _ := ioutil.ReadAll(resp.Body)
+	b, _ := io.ReadAll(resp.Body)
 
 	var pullResponse dockerimagesave.PullResponse
 	err = json.Unmarshal(b, &pullResponse)
@@ -35,7 +35,7 @@ func SaveImageRequest(imageid string) (dockerimagesave.SaveResponse, error) {
 		return dockerimagesave.SaveResponse{}, err
 	}
 	defer resp.Body.Close()
-	b, _ := ioutil.ReadAll(resp.Body)
+	b, _ := io.ReadAll(resp.Body)
 
 	var saveResponse dockerimagesave.SaveResponse
 	err = json.Unmarshal(b, &saveResponse)
@@ -54,7 +54,7 @@ func SearchRequest(term string) (dockerimagesave.SearchResponse, error) {
 		return dockerimagesave.SearchResponse{}, err
 	}
 	defer resp.Body.Close()
-	b, _ := ioutil.ReadAll(resp.Body)
+	b, _ := io.ReadAll(resp.Body)
 
 	var searchResponse dockerimagesave.SearchResponse
 	err = json.Unmarshal(b, &searchResponse)

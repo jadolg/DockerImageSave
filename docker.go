@@ -12,7 +12,6 @@ import (
 	"github.com/docker/docker/client"
 	docker "github.com/fsouza/go-dockerclient"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
@@ -119,7 +118,7 @@ func ImageExistsInRegistry(imageid string) (bool, error) {
 		return false, nil
 	}
 	defer resp.Body.Close()
-	b, _ := ioutil.ReadAll(resp.Body)
+	b, _ := io.ReadAll(resp.Body)
 	return string(b) != "\"Resource not found\"" && string(b) != "Tag not found", nil
 }
 
