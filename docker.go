@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
@@ -107,9 +108,15 @@ func ImageExistsInRegistry(imageid string) (bool, error) {
 		return false, errors.New("The use of a Tag is obligatory")
 	}
 	imageAndTag := strings.Split(imageid, ":")
-	resp, err := http.Get("https://index.docker.io/v1/repositories/" + imageAndTag[0] + "/tags/" + imageAndTag[1])
+	if !strings.Contains(imageid, "/") {
+		imageAndTag[0] = fmt.Sprintf("library/%s", imageAndTag[0])
+	}
+	resp, err := http.Get(fmt.Sprintf("https://hub.docker.com/v2/repositories/%s/tags/%s/", imageAndTag[0], imageAndTag[1]))
 	if err != nil {
 		return false, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return false, nil
 	}
 	defer resp.Body.Close()
 	b, _ := ioutil.ReadAll(resp.Body)

@@ -30,6 +30,10 @@ func TestImageExistsInRegistry(t *testing.T) {
 	assert.True(t, exists)
 	assert.NoError(t, err)
 
+	exists, err = ImageExistsInRegistry("guamulo/dockerimagesave:latest")
+	assert.True(t, exists)
+	assert.NoError(t, err)
+
 	exists, err = ImageExistsInRegistry("qweqwe:1")
 	assert.False(t, exists)
 	assert.NoError(t, err)
