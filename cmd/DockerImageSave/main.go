@@ -61,7 +61,7 @@ func pullImage(imageName string) bool {
 
 	for pullImage.Status != "Downloaded" {
 		if pullImage.Status == "Error" {
-			fmt.Println("\nCan not pull image")
+			fmt.Printf("\nCan not pull image: %s.\n", pullImage.Error)
 			return false
 		}
 		pullImage, err = PullImageRequest(imageName)
