@@ -1,5 +1,5 @@
 name: docker-image-save
-version: 1.6.16
+version: 1.6.17
 summary: Download zip compressed Docker images.
 description: |
   DockerImageSave will download Docker images from Dockerhub using a 3rd party server. Can be used in countries with restricted access to Dockerhub.
