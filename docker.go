@@ -21,6 +21,7 @@ import (
 func PullImage(imageid string) error {
 	ctx := context.Background()
 	dockerClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	defer dockerClient.Close()
 	if err != nil {
 		return err
 	}
@@ -50,6 +51,7 @@ func PullImage(imageid string) error {
 func SaveImage(imageid string, folder string) error {
 	ctx := context.Background()
 	dockerClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	defer dockerClient.Close()
 	if err != nil {
 		return err
 	}
@@ -78,6 +80,7 @@ func SaveImage(imageid string, folder string) error {
 func ImageExists(imageid string) (bool, error) {
 	ctx := context.Background()
 	dockerClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	defer dockerClient.Close()
 	if err != nil {
 		return false, err
 	}
