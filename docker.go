@@ -12,6 +12,7 @@ import (
 	"github.com/docker/docker/client"
 	docker "github.com/fsouza/go-dockerclient"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -21,7 +22,12 @@ import (
 func PullImage(imageid string) error {
 	ctx := context.Background()
 	dockerClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	defer dockerClient.Close()
+	defer func(dockerClient *client.Client) {
+		err := dockerClient.Close()
+		if err != nil {
+			log.Print(err)
+		}
+	}(dockerClient)
 	if err != nil {
 		return err
 	}
@@ -39,7 +45,12 @@ func PullImage(imageid string) error {
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer func(out io.ReadCloser) {
+		err := out.Close()
+		if err != nil {
+			log.Print(err)
+		}
+	}(out)
 	_, err = io.Copy(os.Stdout, out)
 	if err != nil {
 		return err
@@ -51,7 +62,12 @@ func PullImage(imageid string) error {
 func SaveImage(imageid string, folder string) error {
 	ctx := context.Background()
 	dockerClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	defer dockerClient.Close()
+	defer func(dockerClient *client.Client) {
+		err := dockerClient.Close()
+		if err != nil {
+			log.Print(err)
+		}
+	}(dockerClient)
 	if err != nil {
 		return err
 	}
@@ -62,7 +78,12 @@ func SaveImage(imageid string, folder string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func(f *os.File) {
+		err := f.Close()
+		if err != nil {
+			log.Print(err)
+		}
+	}(f)
 	w := bufio.NewWriter(f)
 	data, err := dockerClient.ImageSave(ctx, []string{imageid})
 	if err != nil {
@@ -72,7 +93,10 @@ func SaveImage(imageid string, folder string) error {
 	if err != nil {
 		return err
 	}
-	w.Flush()
+	err = w.Flush()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -80,7 +104,12 @@ func SaveImage(imageid string, folder string) error {
 func ImageExists(imageid string) (bool, error) {
 	ctx := context.Background()
 	dockerClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	defer dockerClient.Close()
+	defer func(dockerClient *client.Client) {
+		err := dockerClient.Close()
+		if err != nil {
+			log.Print(err)
+		}
+	}(dockerClient)
 	if err != nil {
 		return false, err
 	}
