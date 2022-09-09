@@ -144,12 +144,7 @@ func ImageExistsInRegistry(imageid string) (bool, error) {
 		imageAndTag[0] = fmt.Sprintf("library/%s", imageAndTag[0])
 	}
 	resp, err := http.Get(fmt.Sprintf("https://hub.docker.com/v2/repositories/%s/tags/%s/", imageAndTag[0], imageAndTag[1]))
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			log.Print(err)
-		}
-	}(resp.Body)
+	defer CloseResponse(resp)
 	if err != nil {
 		return false, err
 	}

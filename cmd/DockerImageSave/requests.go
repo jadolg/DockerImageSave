@@ -13,10 +13,10 @@ import (
 // PullImageRequest pulls a docker image on server
 func PullImageRequest(imageid string) (dockerimagesave.PullResponse, error) {
 	resp, err := http.Get(ServiceURL + "pull/" + imageid)
+	defer dockerimagesave.CloseResponse(resp)
 	if err != nil {
 		return dockerimagesave.PullResponse{}, err
 	}
-	defer resp.Body.Close()
 	b, _ := io.ReadAll(resp.Body)
 
 	var pullResponse dockerimagesave.PullResponse
@@ -31,10 +31,10 @@ func PullImageRequest(imageid string) (dockerimagesave.PullResponse, error) {
 // SaveImageRequest Saves a docker image on server
 func SaveImageRequest(imageid string) (dockerimagesave.SaveResponse, error) {
 	resp, err := http.Get(ServiceURL + "save/" + imageid)
+	defer dockerimagesave.CloseResponse(resp)
 	if err != nil {
 		return dockerimagesave.SaveResponse{}, err
 	}
-	defer resp.Body.Close()
 	b, _ := io.ReadAll(resp.Body)
 
 	var saveResponse dockerimagesave.SaveResponse
@@ -50,10 +50,10 @@ func SaveImageRequest(imageid string) (dockerimagesave.SaveResponse, error) {
 func SearchRequest(term string) (dockerimagesave.SearchResponse, error) {
 	termWithSpaces := strings.ReplaceAll(term, " ", "%20")
 	resp, err := http.Get(fmt.Sprintf("%s/search?term=%s", ServiceURL, termWithSpaces))
+	defer dockerimagesave.CloseResponse(resp)
 	if err != nil {
 		return dockerimagesave.SearchResponse{}, err
 	}
-	defer resp.Body.Close()
 	b, _ := io.ReadAll(resp.Body)
 
 	var searchResponse dockerimagesave.SearchResponse
