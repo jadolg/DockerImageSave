@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-	"github.com/jadolg/DockerImageSave"
+	dockerimagesave "github.com/jadolg/DockerImageSave"
 )
 
 // PullImageHandler handles pulling a docker image

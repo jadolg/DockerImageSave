@@ -7,15 +7,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/client"
-	docker "github.com/fsouza/go-dockerclient"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/client"
+	docker "github.com/fsouza/go-dockerclient"
 )
 
 // PullImage pulls a docker image to local Docker
