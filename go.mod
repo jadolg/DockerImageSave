@@ -1,6 +1,6 @@
 module github.com/jadolg/DockerImageSave
 
-go 1.18
+go 1.19
 
 require (
 	github.com/InVisionApp/tabular v0.3.0
@@ -29,6 +29,8 @@ require (
 	golang.org/x/sys v0.0.0-20220908164124-27713097b956 // indirect
 )
 
+require github.com/sirupsen/logrus v1.9.0
+
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/Microsoft/go-winio v0.5.2 // indirect
@@ -50,7 +52,6 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
-	github.com/sirupsen/logrus v1.9.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

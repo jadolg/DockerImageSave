@@ -1,4 +1,4 @@
-FROM golang:1.18-buster
+FROM golang:1.19-buster
 
 COPY . /go/src/github.com/jadolg/DockerImageSave/
 WORKDIR /go/src/github.com/jadolg/DockerImageSave/
