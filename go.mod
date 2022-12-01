@@ -23,7 +23,7 @@ require (
 	github.com/prometheus/client_golang v1.13.0
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
-	github.com/stretchr/testify v1.7.0
+	github.com/stretchr/testify v1.8.1
 	go.opencensus.io v0.23.0 // indirect
 	golang.org/x/net v0.0.0-20220907135653-1e95f45603a7 // indirect
 	golang.org/x/sys v0.0.0-20220908164124-27713097b956 // indirect
