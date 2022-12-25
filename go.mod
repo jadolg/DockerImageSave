@@ -6,7 +6,7 @@ require (
 	github.com/InVisionApp/tabular v0.3.0
 	github.com/Microsoft/hcsshim v0.9.4 // indirect
 	github.com/briandowns/spinner v1.19.0
-	github.com/cavaliercoder/grab v2.0.0+incompatible
+	github.com/cavaliergopher/grab/v3 v3.0.1
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/containerd/cgroups v1.0.4 // indirect
 	github.com/containerd/containerd v1.6.8 // indirect

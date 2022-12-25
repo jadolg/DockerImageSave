@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/cavaliercoder/grab"
+	"github.com/cavaliergopher/grab/v3"
 	"github.com/dustin/go-humanize"
 )
 
@@ -39,7 +39,7 @@ Loop:
 			if animateProgress {
 				fmt.Printf("  transferred %v / %v (%.2f%%)\t\t\r",
 					humanize.Bytes(uint64(resp.BytesComplete())),
-					humanize.Bytes(uint64(resp.Size)),
+					humanize.Bytes(uint64(resp.Size())),
 					100*resp.Progress())
 			}
 
