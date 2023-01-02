@@ -13,7 +13,7 @@ require (
 	github.com/docker/docker v20.10.22+incompatible
 	github.com/dustin/go-humanize v1.0.0
 	github.com/fatih/color v1.13.0 // indirect
-	github.com/fsouza/go-dockerclient v1.9.0
+	github.com/fsouza/go-dockerclient v1.9.1
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/gorilla/mux v1.8.0
 	github.com/kyokomi/emoji v2.2.4+incompatible
