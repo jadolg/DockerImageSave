@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/InVisionApp/tabular v0.3.0
-	github.com/briandowns/spinner v1.21.0
+	github.com/briandowns/spinner v1.23.0
 	github.com/cavaliergopher/grab/v3 v3.0.1
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/containerd/containerd v1.6.14 // indirect
