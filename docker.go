@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/docker/docker/api/types/registry"
 	"io"
 	"log"
 	"net/http"
@@ -33,7 +34,7 @@ func PullImage(imageid string) error {
 		return err
 	}
 
-	authConfig := types.AuthConfig{
+	authConfig := registry.AuthConfig{
 		Username: os.Getenv("DOCKER_USER"),
 		Password: os.Getenv("DOCKER_PASSWORD"),
 	}
