@@ -11,7 +11,7 @@ require (
 	github.com/docker/docker v25.0.3+incompatible
 	github.com/dustin/go-humanize v1.0.1
 	github.com/fatih/color v1.15.0 // indirect
-	github.com/fsouza/go-dockerclient v1.10.1
+	github.com/fsouza/go-dockerclient v1.10.2
 	github.com/gorilla/mux v1.8.1
 	github.com/kyokomi/emoji v2.2.4+incompatible
 	github.com/mattn/go-colorable v0.1.13 // indirect
