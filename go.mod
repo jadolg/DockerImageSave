@@ -19,7 +19,7 @@ require (
 	github.com/prometheus/client_golang v1.18.0
 	github.com/prometheus/common v0.45.0 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/sys v0.15.0 // indirect
 )
