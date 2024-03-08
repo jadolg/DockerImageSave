@@ -1,4 +1,4 @@
-FROM golang:1.21
+FROM golang:1.22
 
 COPY . /go/src/github.com/jadolg/DockerImageSave/
 WORKDIR /go/src/github.com/jadolg/DockerImageSave/
