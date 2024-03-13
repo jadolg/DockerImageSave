@@ -58,7 +58,7 @@ require (
 	golang.org/x/mod v0.12.0 // indirect
 	golang.org/x/term v0.16.0 // indirect
 	golang.org/x/tools v0.13.0 // indirect
-	google.golang.org/protobuf v1.32.0 // indirect
+	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gotest.tools/v3 v3.5.1 // indirect
 )
