@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/registry"
 	"io"
 	"log"
@@ -14,7 +15,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
 	docker "github.com/fsouza/go-dockerclient"
@@ -43,7 +43,7 @@ func PullImage(imageid string) error {
 		panic(err)
 	}
 	authStr := base64.URLEncoding.EncodeToString(encodedJSON)
-	out, err := dockerClient.ImagePull(ctx, imageid, types.ImagePullOptions{RegistryAuth: authStr})
+	out, err := dockerClient.ImagePull(ctx, imageid, image.PullOptions{RegistryAuth: authStr})
 	if err != nil {
 		return err
 	}
@@ -115,7 +115,7 @@ func ImageExists(imageid string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	imgs, err := dockerClient.ImageList(ctx, types.ImageListOptions{
+	imgs, err := dockerClient.ImageList(ctx, image.ListOptions{
 		All:     false,
 		Filters: filters.Args{},
 	})
