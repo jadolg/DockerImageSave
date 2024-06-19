@@ -3,11 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"log"
 	"net/http"
 
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 )
 
@@ -39,7 +39,7 @@ func main() {
 	router.HandleFunc("/pull/{user}/{id}", PullImageHandler).Methods("GET")
 	router.HandleFunc("/save/{user}/{id}", SaveImageHandler).Methods("GET")
 	router.PathPrefix("/download/").Handler(http.StripPrefix("/download/",
-		http.FileServer(http.Dir(downloadsFolder))))
+		handlers.CombinedLoggingHandler(log.Writer(), http.FileServer(http.Dir(downloadsFolder)))))
 	router.HandleFunc("/healthcheck", HealthCheckHandler).Methods("GET")
 	router.Handle("/metrics", promhttp.Handler()).Methods("GET")
 	fmt.Println("Listening on port " + *port)
