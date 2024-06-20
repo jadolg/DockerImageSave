@@ -25,7 +25,10 @@ require (
 	golang.org/x/sys v0.18.0 // indirect
 )
 
-require github.com/sirupsen/logrus v1.9.3
+require (
+	github.com/gorilla/handlers v1.5.2
+	github.com/sirupsen/logrus v1.9.3
+)
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
