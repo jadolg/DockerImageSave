@@ -9,7 +9,7 @@ require (
 	github.com/briandowns/spinner v1.23.1
 	github.com/cavaliergopher/grab/v3 v3.0.1
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/docker/docker v27.3.1+incompatible
+	github.com/docker/docker v27.4.0+incompatible
 	github.com/dustin/go-humanize v1.0.1
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/fsouza/go-dockerclient v1.12.0
