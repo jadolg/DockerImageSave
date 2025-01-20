@@ -6,7 +6,7 @@ toolchain go1.23.3
 
 require (
 	github.com/InVisionApp/tabular v0.3.0
-	github.com/briandowns/spinner v1.23.1
+	github.com/briandowns/spinner v1.23.2
 	github.com/cavaliergopher/grab/v3 v3.0.1
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/docker/docker v27.5.0+incompatible
