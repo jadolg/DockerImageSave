@@ -6,7 +6,7 @@ import (
 )
 
 func TestGetFileSize(t *testing.T) {
-	assert.Equal(t, int64(1088), GetFileSize("zipfile.go"))
+	assert.Equal(t, int64(1392), GetFileSize("zipfile.go"))
 }
 
 func TestFileExists(t *testing.T) {

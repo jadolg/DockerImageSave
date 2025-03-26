@@ -4,6 +4,7 @@ package dockerimagesave
 
 import (
 	"archive/zip"
+	log "github.com/sirupsen/logrus"
 	"io"
 	"os"
 )
@@ -15,10 +16,20 @@ func ZipFiles(filename string, files []string) error {
 	if err != nil {
 		return err
 	}
-	defer newfile.Close()
+	defer func(newfile *os.File) {
+		err := newfile.Close()
+		if err != nil {
+			log.Error(err)
+		}
+	}(newfile)
 
 	zipWriter := zip.NewWriter(newfile)
-	defer zipWriter.Close()
+	defer func(zipWriter *zip.Writer) {
+		err := zipWriter.Close()
+		if err != nil {
+			log.Error(err)
+		}
+	}(zipWriter)
 
 	// Add files to zip
 	for _, file := range files {
@@ -26,7 +37,12 @@ func ZipFiles(filename string, files []string) error {
 		if err != nil {
 			return err
 		}
-		defer zipfile.Close()
+		defer func(zipfile *os.File) {
+			err := zipfile.Close()
+			if err != nil {
+				log.Error(err)
+			}
+		}(zipfile)
 
 		// Get the file information
 		info, err := zipfile.Stat()
