@@ -2,14 +2,12 @@ module github.com/jadolg/DockerImageSave
 
 go 1.23
 
-toolchain go1.23.3
-
 require (
 	github.com/InVisionApp/tabular v0.3.0
 	github.com/briandowns/spinner v1.23.2
 	github.com/cavaliergopher/grab/v3 v3.0.1
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/docker/docker v28.0.2+incompatible
+	github.com/docker/docker v28.0.4+incompatible
 	github.com/dustin/go-humanize v1.0.1
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/fsouza/go-dockerclient v1.12.1
