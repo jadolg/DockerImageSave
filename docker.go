@@ -7,13 +7,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/registry"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/api/types/registry"
 
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
@@ -24,15 +25,17 @@ import (
 func PullImage(imageid string) error {
 	ctx := context.Background()
 	dockerClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	defer func(dockerClient *client.Client) {
-		err := dockerClient.Close()
-		if err != nil {
-			log.Print(err)
-		}
-	}(dockerClient)
 	if err != nil {
 		return err
 	}
+	defer func(dockerClient *client.Client) {
+		if dockerClient != nil {
+			err := dockerClient.Close()
+			if err != nil {
+				log.Print(err)
+			}
+		}
+	}(dockerClient)
 
 	authConfig := registry.AuthConfig{
 		Username: os.Getenv("DOCKER_USER"),
@@ -64,15 +67,17 @@ func PullImage(imageid string) error {
 func SaveImage(imageid string, folder string) error {
 	ctx := context.Background()
 	dockerClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	defer func(dockerClient *client.Client) {
-		err := dockerClient.Close()
-		if err != nil {
-			log.Print(err)
-		}
-	}(dockerClient)
 	if err != nil {
 		return err
 	}
+	defer func(dockerClient *client.Client) {
+		if dockerClient != nil {
+			err := dockerClient.Close()
+			if err != nil {
+				log.Print(err)
+			}
+		}
+	}(dockerClient)
 	imageFileName := strings.ReplaceAll(imageid, "/", "_")
 	imageFileName = strings.Replace(imageFileName, ":", "_", 1)
 	imageFileName = RemoveDoubleDots(imageFileName)
@@ -106,15 +111,17 @@ func SaveImage(imageid string, folder string) error {
 func ImageExists(imageid string) (bool, error) {
 	ctx := context.Background()
 	dockerClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	defer func(dockerClient *client.Client) {
-		err := dockerClient.Close()
-		if err != nil {
-			log.Print(err)
-		}
-	}(dockerClient)
 	if err != nil {
 		return false, err
 	}
+	defer func(dockerClient *client.Client) {
+		if dockerClient != nil {
+			err := dockerClient.Close()
+			if err != nil {
+				log.Print(err)
+			}
+		}
+	}(dockerClient)
 	imgs, err := dockerClient.ImageList(ctx, image.ListOptions{
 		All:     false,
 		Filters: filters.Args{},
