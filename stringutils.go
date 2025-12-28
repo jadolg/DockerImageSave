@@ -5,7 +5,7 @@ import "strings"
 func Sanitize(s string) string {
 	escapedString := strings.ReplaceAll(s, "\n", "")
 	escapedString = strings.ReplaceAll(escapedString, "\r", "")
-	return escapedString
+	return RemoveDoubleDots(escapedString)
 }
 
 func RemoveDoubleDots(s string) string {
