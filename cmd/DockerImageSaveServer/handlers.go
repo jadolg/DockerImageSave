@@ -31,6 +31,7 @@ func addToBlacklist(imageID string) {
 	blacklistedImages.Lock()
 	defer blacklistedImages.Unlock()
 	blacklistedImages.images[imageID] = true
+	log.Printf("Image '%s' added to blacklist", imageID)
 }
 
 // PullImageHandler handles pulling a docker image
@@ -70,7 +71,6 @@ func PullImageHandler(w http.ResponseWriter, r *http.Request) {
 				err2 := dockerimagesave.PullImage(imageID)
 				if err2 != nil {
 					addToBlacklist(imageID)
-					log.Printf("Image '%s' added to blacklist", imageID)
 					errorsTotalMetric.Inc()
 					log.Printf("Error pulling image %s: %v", imageID, err2)
 					return
@@ -82,6 +82,7 @@ func PullImageHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		log.Printf("Image '%s' does not exist in registry.", imageID)
+		addToBlacklist(imageID)
 		_ = json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Error: "Can't find image in DockerHub", Status: "Error"})
 		return
 	}
