@@ -7,32 +7,10 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"sync"
 
 	"github.com/gorilla/mux"
 	dockerimagesave "github.com/jadolg/DockerImageSave"
 )
-
-// blacklistedImages stores images that failed to pull
-var blacklistedImages = struct {
-	sync.RWMutex
-	images map[string]bool
-}{images: make(map[string]bool)}
-
-// isBlacklisted checks if an image is in the blacklist
-func isBlacklisted(imageID string) bool {
-	blacklistedImages.RLock()
-	defer blacklistedImages.RUnlock()
-	return blacklistedImages.images[imageID]
-}
-
-// addToBlacklist adds an image to the blacklist
-func addToBlacklist(imageID string) {
-	blacklistedImages.Lock()
-	defer blacklistedImages.Unlock()
-	blacklistedImages.images[imageID] = true
-	log.Printf("Image '%s' added to blacklist", imageID)
-}
 
 // PullImageHandler handles pulling a docker image
 func PullImageHandler(w http.ResponseWriter, r *http.Request) {
@@ -44,51 +22,56 @@ func PullImageHandler(w http.ResponseWriter, r *http.Request) {
 		imageID = user + "/" + imageID
 	}
 
-	if isBlacklisted(imageID) {
-		log.Printf("Image '%s' is blacklisted", imageID)
-		errorsTotalMetric.Inc()
-		_ = json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Error: "Image can't be pulled", Status: "Error"})
+	state := imageStateManager.GetState(imageID)
+
+	if state != nil && state.Status == StatusError {
+		log.Printf("Image '%s' previously failed: %s", imageID, state.Error)
+		_ = json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Error: state.Error, Status: "Error"})
 		return
 	}
 
-	imageExists, err := dockerimagesave.ImageExists(imageID)
-	if err != nil {
-		log.Printf("Error checking if image '%s' exists locally", imageID)
-		errorsTotalMetric.Inc()
-		_ = json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Error: err.Error(), Status: "Error"})
+	if state != nil && state.Status == StatusPulling {
+		log.Printf("Image '%s' is currently being pulled", imageID)
+		_ = json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Status: "Downloading"})
+		return
+	}
+
+	if state != nil && (state.Status == StatusPulled || state.Status == StatusSaving ||
+		state.Status == StatusCompressing || state.Status == StatusReady) {
+		log.Printf("Image '%s' was already pulled.", imageID)
+		_ = json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Status: "Downloaded"})
 		return
 	}
 
 	log.Printf("Requested pulling image '%s'", imageID)
 
-	if !imageExists {
-		log.Printf("Image '%s' does not exist locally", imageID)
-		existsInRegistry, err := dockerimagesave.ImageExistsInRegistry(imageID)
-		if err == nil && existsInRegistry {
-			log.Printf("Image '%s' exists in registry. Pulling image.", imageID)
-			go func() {
-				// TODO: This strategy is just plain stupid. Rework into a queue.
-				err2 := dockerimagesave.PullImage(imageID)
-				if err2 != nil {
-					addToBlacklist(imageID)
-					errorsTotalMetric.Inc()
-					log.Printf("Error pulling image %s: %v", imageID, err2)
-					return
-				}
-				pullsCountMetric.Inc()
-			}()
-			log.Printf("Responding image '%s' is still being downloaded.", imageID)
-			_ = json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Status: "Downloading"})
-			return
-		}
+	existsInRegistry, err := dockerimagesave.ImageExistsInRegistry(imageID)
+	if err != nil || !existsInRegistry {
 		log.Printf("Image '%s' does not exist in registry.", imageID)
-		addToBlacklist(imageID)
+		imageStateManager.SetError(imageID, "Can't find image in DockerHub")
+		errorsTotalMetric.Inc()
 		_ = json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Error: "Can't find image in DockerHub", Status: "Error"})
 		return
 	}
 
-	log.Printf("Image '%s' was already pulled.", imageID)
-	_ = json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Status: "Downloaded"})
+	imageStateManager.SetStatus(imageID, StatusPulling)
+	log.Printf("Image '%s' exists in registry. Pulling image.", imageID)
+
+	go func() {
+		err := dockerimagesave.PullImage(imageID)
+		if err != nil {
+			imageStateManager.SetError(imageID, err.Error())
+			errorsTotalMetric.Inc()
+			log.Printf("Error pulling image %s: %v", imageID, err)
+			return
+		}
+		imageStateManager.SetStatus(imageID, StatusPulled)
+		pullsCountMetric.Inc()
+		log.Printf("Image '%s' pulled successfully", imageID)
+	}()
+
+	log.Printf("Responding image '%s' is still being downloaded.", imageID)
+	_ = json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Status: "Downloading"})
 }
 
 // SaveImageHandler handles saving a docker image
@@ -96,7 +79,6 @@ func SaveImageHandler(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 
 	user := dockerimagesave.Sanitize(params["user"])
-	user = dockerimagesave.RemoveDoubleDots(user)
 	imageID := dockerimagesave.Sanitize(params["id"])
 	cleanImageID := strings.Replace(imageID, ":", "_", 1)
 	imageName := dockerimagesave.RemoveDoubleDots(cleanImageID)
@@ -106,58 +88,94 @@ func SaveImageHandler(w http.ResponseWriter, r *http.Request) {
 		imageName = user + "_" + imageName
 	}
 
-	imageExists, err := dockerimagesave.ImageExists(imageID)
-	if err != nil {
-		errorsTotalMetric.Inc()
-		_ = json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Error: err.Error()})
+	log.Printf("Requested saving image '%s'.", imageID)
+
+	state := imageStateManager.GetState(imageID)
+
+	if state != nil && state.Status == StatusError {
+		log.Printf("Image '%s' previously failed: %s", imageID, state.Error)
+		_ = json.NewEncoder(w).Encode(dockerimagesave.SaveResponse{ID: imageID, Error: state.Error, Status: "Error"})
 		return
 	}
 
-	log.Printf("Requested saving image '%s'.", imageID)
+	if state != nil && state.Status == StatusReady {
+		log.Printf("Image '%s' is ready to be downloaded.", imageID)
+		_ = json.NewEncoder(w).Encode(dockerimagesave.SaveResponse{
+			ID:     imageID,
+			URL:    state.URL,
+			Size:   state.Size,
+			Status: "Ready",
+		})
+		return
+	}
 
-	if imageExists {
-		log.Printf("Image '%s' has already being pulled.", imageID)
-		if !dockerimagesave.FileExists(downloadsFolder+"/"+imageName+".tar") && dockerimagesave.FileExists(downloadsFolder+"/"+imageName+".tar.zip") {
-			log.Printf("Image '%s' is ready to be downloaded.", imageID)
-			_ = json.NewEncoder(w).Encode(dockerimagesave.SaveResponse{ID: imageID,
-				URL:    "download/" + imageName + ".tar.zip",
-				Size:   dockerimagesave.GetFileSize(downloadsFolder + "/" + imageName + ".tar.zip"),
-				Status: "Ready",
-			})
+	if state != nil && (state.Status == StatusSaving || state.Status == StatusCompressing) {
+		log.Printf("Image '%s' is currently being saved/compressed.", imageID)
+		_ = json.NewEncoder(w).Encode(dockerimagesave.SaveResponse{
+			ID:     imageID,
+			URL:    "download/" + imageName + ".tar.zip",
+			Status: "Saving",
+		})
+		return
+	}
+
+	if state != nil && state.Status == StatusPulling {
+		log.Printf("Image '%s' is still being pulled.", imageID)
+		_ = json.NewEncoder(w).Encode(dockerimagesave.SaveResponse{
+			ID:     imageID,
+			Error:  "Image is still being pulled, please wait",
+			Status: "Pulling",
+		})
+		return
+	}
+
+	if state == nil || state.Status != StatusPulled {
+		log.Printf("Image '%s' has to be pulled before it's saved", imageID)
+		_ = json.NewEncoder(w).Encode(dockerimagesave.SaveResponse{ID: imageID, Error: "Image has to be pulled first", Status: "Error"})
+		return
+	}
+
+	imageStateManager.SetStatus(imageID, StatusSaving)
+	log.Printf("Saving image '%s' into file %s", imageID, downloadsFolder+"/"+imageName+".tar.zip")
+
+	go func() {
+		err := dockerimagesave.SaveImage(imageID, downloadsFolder)
+		if err != nil {
+			imageStateManager.SetError(imageID, fmt.Sprintf("Error saving image: %v", err))
+			errorsTotalMetric.Inc()
+			log.Println(err)
 			return
 		}
 
-		if !dockerimagesave.FileExists(downloadsFolder + "/" + imageName + ".tar") {
-			log.Printf("Saving image '%s' into file %s", imageID, downloadsFolder+"/"+imageName+".tar.zip")
-			go func() {
-				err := dockerimagesave.SaveImage(imageID, downloadsFolder)
-				if err != nil {
-					errorsTotalMetric.Inc()
-					log.Println(err)
-				}
-				err = dockerimagesave.ZipFiles(downloadsFolder+"/"+imageName+".tar.zip", []string{downloadsFolder + "/" + imageName + ".tar"})
-				if err != nil {
-					errorsTotalMetric.Inc()
-					log.Println(err)
-				}
-				err = os.Remove(downloadsFolder + "/" + imageName + ".tar")
-				if err != nil {
-					log.Print(err)
-				}
-				log.Printf("Removed uncompressed image file '%s'", downloadsFolder+"/"+imageName+".tar")
-			}()
+		imageStateManager.SetStatus(imageID, StatusCompressing)
+		log.Printf("Compressing image '%s'", imageID)
+
+		err = dockerimagesave.ZipFiles(downloadsFolder+"/"+imageName+".tar.zip", []string{downloadsFolder + "/" + imageName + ".tar"})
+		if err != nil {
+			imageStateManager.SetError(imageID, fmt.Sprintf("Error compressing image: %v", err))
+			errorsTotalMetric.Inc()
+			log.Println(err)
+			return
 		}
 
-		log.Printf("Responding image '%s' is still being saved.", imageID)
-		_ = json.NewEncoder(w).Encode(dockerimagesave.SaveResponse{ID: imageID,
-			URL:    "download/" + imageName + ".tar.zip",
-			Status: "Saving"})
+		err = os.Remove(downloadsFolder + "/" + imageName + ".tar")
+		if err != nil {
+			log.Print(err)
+		}
+		log.Printf("Removed uncompressed image file '%s'", downloadsFolder+"/"+imageName+".tar")
 
-	} else {
-		log.Printf("Image '%s' has to be pulled before it's saved", imageID)
-		errorsTotalMetric.Inc()
-		_ = json.NewEncoder(w).Encode(dockerimagesave.SaveResponse{ID: imageID, Error: "Image has to be pulled first", Status: "Error"})
-	}
+		url := "download/" + imageName + ".tar.zip"
+		size := dockerimagesave.GetFileSize(downloadsFolder + "/" + imageName + ".tar.zip")
+		imageStateManager.SetReady(imageID, url, size)
+		log.Printf("Image '%s' is ready for download", imageID)
+	}()
+
+	log.Printf("Responding image '%s' is still being saved.", imageID)
+	_ = json.NewEncoder(w).Encode(dockerimagesave.SaveResponse{
+		ID:     imageID,
+		URL:    "download/" + imageName + ".tar.zip",
+		Status: "Saving",
+	})
 }
 
 // HealthCheckHandler responds with data about the host
