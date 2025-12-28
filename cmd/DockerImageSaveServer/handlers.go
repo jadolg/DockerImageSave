@@ -7,10 +7,31 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/gorilla/mux"
 	dockerimagesave "github.com/jadolg/DockerImageSave"
 )
+
+// blacklistedImages stores images that failed to pull
+var blacklistedImages = struct {
+	sync.RWMutex
+	images map[string]bool
+}{images: make(map[string]bool)}
+
+// isBlacklisted checks if an image is in the blacklist
+func isBlacklisted(imageID string) bool {
+	blacklistedImages.RLock()
+	defer blacklistedImages.RUnlock()
+	return blacklistedImages.images[imageID]
+}
+
+// addToBlacklist adds an image to the blacklist
+func addToBlacklist(imageID string) {
+	blacklistedImages.Lock()
+	defer blacklistedImages.Unlock()
+	blacklistedImages.images[imageID] = true
+}
 
 // PullImageHandler handles pulling a docker image
 func PullImageHandler(w http.ResponseWriter, r *http.Request) {
@@ -21,6 +42,14 @@ func PullImageHandler(w http.ResponseWriter, r *http.Request) {
 	if user != "" {
 		imageID = user + "/" + imageID
 	}
+
+	if isBlacklisted(imageID) {
+		log.Printf("Image '%s' is blacklisted", imageID)
+		errorsTotalMetric.Inc()
+		_ = json.NewEncoder(w).Encode(dockerimagesave.PullResponse{ID: imageID, Error: "Image can't be pulled", Status: "Error"})
+		return
+	}
+
 	imageExists, err := dockerimagesave.ImageExists(imageID)
 	if err != nil {
 		log.Printf("Error checking if image '%s' exists locally", imageID)
@@ -40,6 +69,8 @@ func PullImageHandler(w http.ResponseWriter, r *http.Request) {
 				// TODO: This strategy is just plain stupid. Rework into a queue.
 				err2 := dockerimagesave.PullImage(imageID)
 				if err2 != nil {
+					addToBlacklist(imageID)
+					log.Printf("Image '%s' added to blacklist", imageID)
 					errorsTotalMetric.Inc()
 					log.Printf("Error pulling image %s: %v", imageID, err2)
 					return
