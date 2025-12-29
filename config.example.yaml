@@ -1,0 +1,24 @@
+# Docker Image Service Configuration
+
+# Server listening port (default: 8080)
+port: 8080
+
+# Directory to cache downloaded images (optional)
+# If not specified, uses a temporary directory
+cache_dir: /var/cache/docker-images
+
+# Per-registry credentials
+# Use registry hostname as the key
+registries:
+  ghcr.io:
+    username: your-github-username
+    password: your-github-token
+  
+  registry.example.com:
+    username: admin
+    password: your-password
+  
+  # Docker Hub credentials (use any of these hostnames)
+  # docker.io:
+  #   username: your-dockerhub-username
+  #   password: your-dockerhub-token
