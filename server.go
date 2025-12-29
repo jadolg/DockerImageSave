@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // Server represents the HTTP server for the Docker image service
@@ -43,6 +45,7 @@ func (s *Server) Run() error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", s.healthHandler)
 	mux.HandleFunc("/image", s.imageHandler)
+	mux.Handle("/metrics", promhttp.Handler())
 
 	log.Printf("Starting server on %s (cache: %s)\n", s.addr, s.cacheDir)
 	return http.ListenAndServe(s.addr, mux)
@@ -92,6 +95,7 @@ func (s *Server) imageHandler(w http.ResponseWriter, r *http.Request) {
 	imagePath, err := DownloadImage(imageName, s.cacheDir)
 	if err != nil {
 		log.Printf("Failed to download image %s: %v\n", imageName, err)
+		errorsTotalMetric.Inc()
 		writeJSONError(w, fmt.Sprintf("failed to download image: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -136,6 +140,7 @@ func (s *Server) serveImageFile(w http.ResponseWriter, r *http.Request, imagePat
 	file, err := os.Open(imagePath)
 	if err != nil {
 		log.Printf("Failed to open image file: %v\n", err)
+		errorsTotalMetric.Inc()
 		writeJSONError(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -149,6 +154,7 @@ func (s *Server) serveImageFile(w http.ResponseWriter, r *http.Request, imagePat
 	fileInfo, err := file.Stat()
 	if err != nil {
 		log.Printf("Failed to stat image file: %v\n", err)
+		errorsTotalMetric.Inc()
 		writeJSONError(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -161,6 +167,7 @@ func (s *Server) serveImageFile(w http.ResponseWriter, r *http.Request, imagePat
 	http.ServeContent(w, r, filename, fileInfo.ModTime(), file)
 
 	log.Printf("Served image: %s (%d bytes total)\n", imageName, fileInfo.Size())
+	pullsCountMetric.Inc()
 }
 
 // writeJSONError writes a JSON error response
@@ -169,6 +176,7 @@ func writeJSONError(w http.ResponseWriter, message string, statusCode int) {
 	w.WriteHeader(statusCode)
 	err := json.NewEncoder(w).Encode(map[string]string{"error": message})
 	if err != nil {
+		errorsTotalMetric.Inc()
 		log.Printf("Failed to write JSON error response: %v\n", err)
 	}
 }
