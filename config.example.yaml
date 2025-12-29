@@ -5,7 +5,7 @@ port: 8080
 
 # Directory to cache downloaded images (optional)
 # If not specified, uses a temporary directory
-cache_dir: /var/cache/docker-images
+cache_dir: /tmp/docker-images
 
 # Per-registry credentials
 # Use registry hostname as the key

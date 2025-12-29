@@ -1,14 +1,14 @@
-version: "3"
 services:
   dockerimagesave:
-    image: guamulo/dockerimagesave
+    image: guamulo/dockerimagesave:v2
     build:
       context: .
     restart: always
     ports:
-      - "127.0.0.1:6060:6060"
+      - "127.0.0.1:8080:8080"
     volumes:
       - /root/images:/tmp/docker-images
+      - ./config.yaml:/config.yaml
     container_name: dockerimagesave
 
   caddy:

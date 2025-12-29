@@ -1,5 +1,5 @@
 dockerimagesave.yourdomain.org {
-        reverse_proxy dockerimagesave:6060
+        reverse_proxy dockerimagesave:8080
         header Access-Control-Allow-Methods "GET, OPTIONS"
         header Access-Control-Allow-Headers "*"
         header Access-Control-Allow-Origin "*"
