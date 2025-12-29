@@ -27,7 +27,10 @@ func NewServer(addr string, cacheDir string) *Server {
 			log.Fatalf("failed to create temporary cache directory: %v", err)
 		}
 		cacheDir = tmpDir
+	} else if err := os.MkdirAll(cacheDir, 0755); err != nil {
+		log.Fatalf("failed to create cache directory: %v", err)
 	}
+
 	return NewServerWithCache(addr, cacheDir)
 }
 
