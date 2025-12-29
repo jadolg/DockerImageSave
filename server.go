@@ -131,23 +131,6 @@ func (s *Server) getCacheFilename(imageName string) string {
 	return fmt.Sprintf("%s.tar", safeImageName)
 }
 
-func (s *Server) validateCachePath(cachePath string) error {
-	absCacheDir, err := filepath.Abs(s.cacheDir)
-	if err != nil {
-		return err
-	}
-	absCachePath, err := filepath.Abs(cachePath)
-	if err != nil {
-		return err
-	}
-
-	if !strings.HasPrefix(absCachePath, absCacheDir+string(filepath.Separator)) {
-		return fmt.Errorf("invalid cache path")
-	}
-
-	return nil
-}
-
 // serveImageFile streams an image tar file to the response with Range request support
 func (s *Server) serveImageFile(w http.ResponseWriter, r *http.Request, imagePath, imageName string) {
 	file, err := os.Open(imagePath)

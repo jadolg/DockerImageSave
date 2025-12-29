@@ -30,8 +30,14 @@ func TestDecompressGzip(t *testing.T) {
 	if _, err := gzWriter.Write(content); err != nil {
 		t.Fatal(err)
 	}
-	gzWriter.Close()
-	gzFile.Close()
+	err = gzWriter.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = gzFile.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if err := decompressGzip(gzPath, outPath); err != nil {
 		t.Fatalf("decompressGzip failed: %v", err)
@@ -94,7 +100,12 @@ func TestCreateTar(t *testing.T) {
 	}
 
 	tarPath := filepath.Join(os.TempDir(), "test-output.tar")
-	defer os.Remove(tarPath)
+	defer func(name string) {
+		err := os.Remove(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}(tarPath)
 
 	if err := createTar(srcDir, tarPath); err != nil {
 		t.Fatalf("createTar failed: %v", err)
@@ -104,7 +115,12 @@ func TestCreateTar(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tarFile.Close()
+	defer func(tarFile *os.File) {
+		err := tarFile.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}(tarFile)
 
 	tr := tar.NewReader(tarFile)
 	files := make(map[string][]byte)
@@ -155,7 +171,12 @@ func TestCreateTar_NestedDirectories(t *testing.T) {
 	}
 
 	tarPath := filepath.Join(os.TempDir(), "test-nested.tar")
-	defer os.Remove(tarPath)
+	defer func(name string) {
+		err := os.Remove(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}(tarPath)
 
 	if err := createTar(srcDir, tarPath); err != nil {
 		t.Fatalf("createTar failed: %v", err)
@@ -165,7 +186,12 @@ func TestCreateTar_NestedDirectories(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tarFile.Close()
+	defer func(tarFile *os.File) {
+		err := tarFile.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}(tarFile)
 
 	tr := tar.NewReader(tarFile)
 	foundNested := false
