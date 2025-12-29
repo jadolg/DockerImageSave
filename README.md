@@ -4,6 +4,12 @@
 
 [![Go](https://github.com/jadolg/DockerImageSave/actions/workflows/go.yml/badge.svg)](https://github.com/jadolg/DockerImageSave/actions/workflows/go.yml)
 
+## Notice on version 1.x.x
+
+Version 1.x.x is deprecated and will not receive updates or security patches. Please upgrade to version 2.x.x.
+The default service is also now running version 2.x.x which means the old client application does no longer works.
+Version 2.x.x does not need any client application since it works over HTTP(s).
+
 ## Why?
 
 Cuba is actively blocked by Docker and this makes difficult to obtain docker images since there is no direct access to
@@ -37,7 +43,7 @@ Remember to update the domain name in the Caddyfile.
 wget --tries=5 --waitretry=3 -q -O - "https://dockerimagesave.akiel.dev/image?name=ubuntu:25.04" | docker load
 ```
 
-#### With resume support (for large images)
+#### With resume support (for large images or if you want to keep the file)
 
 ```bash
 wget -c --tries=5 --waitretry=3 --content-disposition "https://dockerimagesave.akiel.dev/image?name=ubuntu:25.04" && docker load -i ubuntu_25_04.tar
