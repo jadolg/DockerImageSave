@@ -3,3 +3,5 @@ vendor/
 .vscode/
 /images
 /config.yaml
+# Added by goreleaser init:
+dist/
