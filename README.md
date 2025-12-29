@@ -34,11 +34,11 @@ Remember to update the domain name in the Caddyfile.
 #### Direct pipe (simple)
 
 ```bash
-wget --tries=5 --waitretry=3 -q -O - "http://localhost:8080/image?name=ubuntu:25.04" | docker load
+wget --tries=5 --waitretry=3 -q -O - "https://dockerimagesave.akiel.dev/image?name=ubuntu:25.04" | docker load
 ```
 
 #### With resume support (for large images)
 
 ```bash
-wget -c --tries=5 --waitretry=3 --content-disposition "http://localhost:8080/image?name=ubuntu:25.04" && docker load -i ubuntu_25_04.tar
+wget -c --tries=5 --waitretry=3 --content-disposition "https://dockerimagesave.akiel.dev/image?name=ubuntu:25.04" && docker load -i ubuntu_25_04.tar
 ```
