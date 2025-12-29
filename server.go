@@ -128,11 +128,11 @@ func sanitizeImageName(imageName string) (string, error) {
 }
 
 // getCacheFilename generates a safe filename for caching
+// This must match the filename format used by createOutputTar in image.go
 func (s *Server) getCacheFilename(imageName string) string {
-	safeImageName := strings.ReplaceAll(imageName, "/", "_")
-	safeImageName = strings.ReplaceAll(safeImageName, ":", "_")
-	safeImageName = strings.ReplaceAll(safeImageName, ".", "_")
-	return fmt.Sprintf("%s.tar.gz", safeImageName)
+	ref := ParseImageReference(imageName)
+	safeImageName := strings.ReplaceAll(ref.Repository, "/", "_")
+	return fmt.Sprintf("%s_%s.tar.gz", safeImageName, ref.Tag)
 }
 
 // serveImageFile streams an image tar file to the response with Range request support
