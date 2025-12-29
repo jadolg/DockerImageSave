@@ -4,92 +4,47 @@
 
 [![Go](https://github.com/jadolg/DockerImageSave/actions/workflows/go.yml/badge.svg)](https://github.com/jadolg/DockerImageSave/actions/workflows/go.yml)
 
-This package consists of two commands. 
-* `DockerImageSaveServer` is a server that pulls, saves, compresses and serves via http docker images. Docker has to be installed in the computer this service is deployed. 
-* `DockerImageSave` is the terminal application that talks with `DockerImageSaveServer` and downloads the zip compressed docker images.
+## Notice on version 1.x.x
+
+Version 1.x.x is deprecated and will not receive updates or security patches. Please upgrade to version 2.x.x.
+The default service is also now running version 2.x.x which means the old client application does no longer works.
+Version 2.x.x does not need any client application since it works over HTTP(s).
 
 ## Why?
-Cuba is actively blocked by Docker and this makes difficult to obtain docker images since there is no direct access to the registry, also Cuba's internet access is restricted and slow in most cases, so a way to download these images that can be resumed is needed by thousands of developers.
+
+Cuba is actively blocked by Docker and this makes difficult to obtain docker images since there is no direct access to
+the registry, also Cuba's internet access is restricted and slow in most cases, so a way to download these images that
+can be resumed is needed by thousands of developers.
 
 ## Official Docker image
+
 Docker image is being deployed with the CI as `guamulo/dockerimagesave`
 
-## How to use the client:
+## Usage
 
-### Download
+### Server side
 
-Download it for your distribution from the releases page on GitHub (https://github.com/jadolg/DockerImageSave/releases).
-Not there? Create an issue and I'll start shipping specially for you ;-)
+#### docker-compose.yml
 
-or
+This will spawn a dockerimagesave server with caddy as a reverse proxy with automatic https using let's encrypt.
+Remember to update the domain name in the Caddyfile.
 
-### Install as a snap
+`docker compose up -d`
 
-[![Get it from the Snap Store](https://snapcraft.io/static/images/badges/en/snap-store-black.svg)](https://snapcraft.io/docker-image-save)
+#### docker run (direct usage without reverse proxy)
 
-`snap install docker-image-save` 
+`docker run -v $PWD/config.yaml:/config.yaml -p 8080:8080 -d guamulo/dockerimagesave`
 
-### Help
+### Client side
 
-The client comes with help included. Please use it ;-)
+#### Direct pipe (simple)
 
-```
-Usage of ./DockerImageSave-linux-amd64:
-  -i string
-        Image to download
-  -no-animations
-        Hide animations and decorations
-  -no-download
-        Do all the work but downloading the image
-  -s string
-        URL of the Docker Image Download Server (default "https://dockerimagesave.akiel.dev/")
-  -search string
-        A search query
+```bash
+wget --tries=5 --waitretry=3 -q -O - "https://dockerimagesave.akiel.dev/image?name=ubuntu:25.04" | docker load
 ```
 
-If you are using it from a script I recommend to use the `-no-animations` flag to make it less noisy.
-Also if planning to use curl for downloading you might want to use the `-no-download` flag.
+#### With resume support (for large images or if you want to keep the file)
 
-## How to use the server
-
-You are able and encouraged to deploy your own server. The best way to use it is of course the docker version.
-Just run `docker run -p 6060:6060 -v /var/run/docker.sock:/var/run/docker.sock:rw -d guamulo/dockerimagesave:latest`.
-There are no "official" builds of the server as a binary.
-
-## API Documentation
-
-Want to write yor own client? Here is what you need to know.
-
-### Pulling the image on the server
-
-This API call will pull the image to your server. It is exactly the same as doing `docker pull image` on the server.
-- path: **/pull/{id}**
-- method: GET
-- curl: `curl https://dockerimagesave.akiel.dev/pull/alpine:latest`
-- response: `{"id":"alpine:latest","status":"Downloaded"}`
-
-Wait for the status to be **Downloaded** so you can save the image for downloading.
-It does not matter how many times you call this endpoint with the same image it won't re-download it.
-
-### Saving the image
-
-This API call will save and compress an already pulled image making it ready for download. 
-- path: **/save/{id}**
-- method: GET
-- curl: `curl https://dockerimagesave.akiel.dev/save/alpine:latest`
-- response: `{"id":"alpine:latest","url":"download/alpine:latest.tar.zip","size":2214576,"status":"Ready"}`
-
-Wait for the status to be **Ready** so you can download.
-
-### Downloading the image
-
-Finally you can download the image doing with the url provided after saving it.
-
-- Path: **/download/{url}**
-- Method: GET
-- curl: `url https://dockerimagesave.akiel.dev/download/alpine:latest.tar.zip -o alpine:latest.tar.zip`
-
-### Loading the image into your local Docker
-- Unzip the downloaded file `unzip alpine\:latest.tar.zip`
-- Load it into Docker `docker load -i alpine\:latest.tar`
-Now you should be able to see it on the images list on `docker images | grep alpine`
+```bash
+wget -c --tries=5 --waitretry=3 --content-disposition "https://dockerimagesave.akiel.dev/image?name=ubuntu:25.04" && docker load -i ubuntu_25_04.tar
+```

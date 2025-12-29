@@ -1,26 +1,110 @@
-package dockerimagesave
+package main
 
 import (
+	"archive/tar"
+	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
+	"io"
 	"log"
 	"os"
+	"path/filepath"
 )
 
-// GetFileSize gets the size of a file
-func GetFileSize(afile string) int64 {
-	afile = RemoveDoubleDots(afile)
-	fi, err := os.Stat(afile)
-	if err != nil {
-		log.Print(err)
+// closeWithLog closes an io.Closer and logs any error with the given context
+func closeWithLog(c io.Closer, context string) {
+	if err := c.Close(); err != nil {
+		log.Printf("Error closing %s: %v\n", context, err)
 	}
-
-	return fi.Size()
 }
 
-//FileExists checks if a file exists
-func FileExists(afile string) bool {
-	afile = RemoveDoubleDots(afile)
-	if _, err := os.Stat(afile); os.IsNotExist(err) {
-		return false
+// decompressGzip decompresses a gzip file to a destination path
+func decompressGzip(src, dst string) error {
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return err
 	}
-	return true
+	defer closeWithLog(srcFile, "source file")
+
+	gzReader, err := gzip.NewReader(srcFile)
+	if err != nil {
+		_, err := srcFile.Seek(0, 0)
+		if err != nil {
+			return err
+		}
+		dstFile, err := os.Create(dst)
+		if err != nil {
+			return err
+		}
+		defer closeWithLog(dstFile, "destination file")
+		_, err = io.Copy(dstFile, srcFile)
+		return err
+	}
+	defer closeWithLog(gzReader, "gzip reader")
+
+	dstFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer closeWithLog(dstFile, "destination file")
+
+	hasher := sha256.New()
+	writer := io.MultiWriter(dstFile, hasher)
+	_, err = io.Copy(writer, gzReader)
+	if err != nil {
+		return err
+	}
+
+	_ = hex.EncodeToString(hasher.Sum(nil))
+	return nil
+}
+
+// createTar creates a tar archive from a source directory
+func createTar(srcDir, destPath string) error {
+	file, err := os.Create(destPath)
+	if err != nil {
+		return err
+	}
+	defer closeWithLog(file, "tar file")
+
+	tw := tar.NewWriter(file)
+	defer closeWithLog(tw, "tar writer")
+
+	return filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		relPath, err := filepath.Rel(srcDir, path)
+		if err != nil {
+			return err
+		}
+
+		if relPath == "." {
+			return nil
+		}
+
+		header, err := tar.FileInfoHeader(info, "")
+		if err != nil {
+			return err
+		}
+		header.Name = relPath
+
+		if err := tw.WriteHeader(header); err != nil {
+			return err
+		}
+
+		if info.IsDir() {
+			return nil
+		}
+
+		f, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer closeWithLog(f, "file")
+
+		_, err = io.Copy(tw, f)
+		return err
+	})
 }

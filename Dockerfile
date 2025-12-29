@@ -1,11 +1,16 @@
-FROM golang:1.25
+FROM golang:1.25 AS build
 
-COPY . /go/src/github.com/jadolg/DockerImageSave/
-WORKDIR /go/src/github.com/jadolg/DockerImageSave/
+WORKDIR /app
 
-RUN CGO_ENABLED=0 go build -ldflags '-w -s' -a -installsuffix cgo github.com/jadolg/DockerImageSave/cmd/DockerImageSaveServer
+COPY go.mod go.sum /app/
+RUN go mod download
 
-FROM alpine:3.22
-COPY --from=0 /go/src/github.com/jadolg/DockerImageSave/DockerImageSaveServer /executables/DockerImageSaveServer
-WORKDIR /executables/
-CMD [ "./DockerImageSaveServer" ]
+COPY . .
+RUN CGO_ENABLED=0 go build -ldflags '-w -s' .
+
+FROM scratch
+COPY --from=build /app/DockerImageSave /DockerImageSave
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+EXPOSE 8080
+
+CMD [ "/DockerImageSave" ]

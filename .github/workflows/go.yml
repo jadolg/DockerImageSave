@@ -31,28 +31,6 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Build
-        run: /bin/bash build_executables.sh
+        run: go build -v ./...
       - name: Test
         run: go test -v ./...
-
-  docker:
-    name: build and push Docker image
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - name: Login to DockerHub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/dockerimagesave:${{ github.sha }}
-      - name: Build and latest
-        if: ${{ github.ref == 'refs/heads/master' }}
-        uses: docker/build-push-action@v6
-        with:
-          push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/dockerimagesave:latest

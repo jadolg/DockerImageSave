@@ -1,8 +1,7 @@
 vendor/
-Gopkg.lock
 .idea/
 .vscode/
-DockerImageSave
-DockerImageSaveServer
-!DockerImageSave/
-!DockerImageSaveServer/
+/images
+/config.yaml
+# Added by goreleaser init:
+dist/
