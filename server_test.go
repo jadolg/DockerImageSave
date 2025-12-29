@@ -100,8 +100,8 @@ func TestImageHandler_DownloadImage(t *testing.T) {
 	}
 
 	contentType := resp.Header.Get("Content-Type")
-	if contentType != "application/x-tar" {
-		t.Errorf("expected Content-Type 'application/x-tar', got '%s'", contentType)
+	if contentType != "application/gzip" {
+		t.Errorf("expected Content-Type 'application/gzip', got '%s'", contentType)
 	}
 
 	contentDisposition := resp.Header.Get("Content-Disposition")
@@ -122,7 +122,7 @@ func TestServeImageFile_RangeRequest(t *testing.T) {
 	defer cleanupTempDir(t, tempDir)
 
 	testContent := []byte("0123456789ABCDEFGHIJ")
-	testFile := filepath.Join(tempDir, "test_image.tar")
+	testFile := filepath.Join(tempDir, "test_image.tar.gz")
 	if err := os.WriteFile(testFile, testContent, 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -229,7 +229,7 @@ func TestServeImageFile_InvalidRange(t *testing.T) {
 	defer cleanupTempDir(t, tempDir)
 
 	testContent := []byte("0123456789")
-	testFile := filepath.Join(tempDir, "test.tar")
+	testFile := filepath.Join(tempDir, "test.tar.gz")
 	if err := os.WriteFile(testFile, testContent, 0644); err != nil {
 		t.Fatal(err)
 	}

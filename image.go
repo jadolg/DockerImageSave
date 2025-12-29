@@ -162,7 +162,7 @@ func createOutputTar(ref ImageReference, tempDir, outputDir string) (string, err
 	}
 
 	safeImageName := strings.ReplaceAll(ref.Repository, "/", "_")
-	outputPath := filepath.Join(outputDir, fmt.Sprintf("%s_%s.tar", safeImageName, ref.Tag))
+	outputPath := filepath.Join(outputDir, fmt.Sprintf("%s_%s.tar.gz", safeImageName, ref.Tag))
 
 	log.Println("Creating tar archive...")
 	if err := createTar(tempDir, outputPath); err != nil {
