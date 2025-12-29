@@ -7,7 +7,7 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
     volumes:
-      - /root/images:/tmp/docker-images
+      - /home/ubuntu/images:/tmp/docker-images
       - ./config.yaml:/config.yaml
     container_name: dockerimagesave
 
