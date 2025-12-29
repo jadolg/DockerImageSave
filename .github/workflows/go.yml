@@ -31,6 +31,6 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Build
-        run: /bin/bash build_executables.sh
+        run: go build -v ./...
       - name: Test
         run: go test -v ./...
