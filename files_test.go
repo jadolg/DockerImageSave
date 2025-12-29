@@ -99,7 +99,7 @@ func TestCreateTar(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tarPath := filepath.Join(os.TempDir(), "test-output.tar")
+	tarPath := filepath.Join(os.TempDir(), "test-output.tar.gz")
 	defer func(name string) {
 		err := os.Remove(name)
 		if err != nil {
@@ -122,7 +122,18 @@ func TestCreateTar(t *testing.T) {
 		}
 	}(tarFile)
 
-	tr := tar.NewReader(tarFile)
+	gzReader, err := gzip.NewReader(tarFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func(gzReader *gzip.Reader) {
+		err := gzReader.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}(gzReader)
+
+	tr := tar.NewReader(gzReader)
 	files := make(map[string][]byte)
 
 	for {
@@ -170,7 +181,7 @@ func TestCreateTar_NestedDirectories(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tarPath := filepath.Join(os.TempDir(), "test-nested.tar")
+	tarPath := filepath.Join(os.TempDir(), "test-nested.tar.gz")
 	defer func(name string) {
 		err := os.Remove(name)
 		if err != nil {
@@ -193,7 +204,18 @@ func TestCreateTar_NestedDirectories(t *testing.T) {
 		}
 	}(tarFile)
 
-	tr := tar.NewReader(tarFile)
+	gzReader, err := gzip.NewReader(tarFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func(gzReader *gzip.Reader) {
+		err := gzReader.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}(gzReader)
+
+	tr := tar.NewReader(gzReader)
 	foundNested := false
 
 	for {

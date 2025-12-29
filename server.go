@@ -132,7 +132,7 @@ func (s *Server) getCacheFilename(imageName string) string {
 	safeImageName := strings.ReplaceAll(imageName, "/", "_")
 	safeImageName = strings.ReplaceAll(safeImageName, ":", "_")
 	safeImageName = strings.ReplaceAll(safeImageName, ".", "_")
-	return fmt.Sprintf("%s.tar", safeImageName)
+	return fmt.Sprintf("%s.tar.gz", safeImageName)
 }
 
 // serveImageFile streams an image tar file to the response with Range request support
@@ -161,7 +161,7 @@ func (s *Server) serveImageFile(w http.ResponseWriter, r *http.Request, imagePat
 
 	filename := s.getCacheFilename(imageName)
 
-	w.Header().Set("Content-Type", "application/x-tar")
+	w.Header().Set("Content-Type", "application/gzip")
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
 
 	http.ServeContent(w, r, filename, fileInfo.ModTime(), file)

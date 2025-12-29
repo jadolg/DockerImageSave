@@ -59,15 +59,21 @@ func decompressGzip(src, dst string) error {
 	return nil
 }
 
-// createTar creates a tar archive from a source directory
+// createTar creates a gzip-compressed tar archive from a source directory
 func createTar(srcDir, destPath string) error {
 	file, err := os.Create(destPath)
 	if err != nil {
 		return err
 	}
-	defer closeWithLog(file, "tar file")
+	defer closeWithLog(file, "tar.gz file")
 
-	tw := tar.NewWriter(file)
+	gzWriter, err := gzip.NewWriterLevel(file, gzip.BestCompression)
+	if err != nil {
+		return err
+	}
+	defer closeWithLog(gzWriter, "gzip writer")
+
+	tw := tar.NewWriter(gzWriter)
 	defer closeWithLog(tw, "tar writer")
 
 	return filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
