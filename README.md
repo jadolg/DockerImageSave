@@ -20,6 +20,11 @@ can be resumed is needed by thousands of developers.
 
 Docker image is being deployed with the CI as `guamulo/dockerimagesave`
 
+## My instance
+
+You can use my public instance at: [https://dockerimagesave.akiel.dev](https://dockerimagesave.akiel.dev)
+Metrics available in [Grafana](https://grafana.akiel.dev/goto/df8kgk8b4gi68b?orgId=2)
+
 ## Usage
 
 ### Server side
