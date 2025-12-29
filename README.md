@@ -37,6 +37,10 @@ Remember to update the domain name in the Caddyfile.
 
 ### Client side
 
+#### Only get the file
+
+`wget -c --tries=5 --waitretry=3 --content-disposition "https://dockerimagesave.akiel.dev/image?name=ubuntu:25.04"`
+
 #### Direct pipe (simple)
 
 ```bash
