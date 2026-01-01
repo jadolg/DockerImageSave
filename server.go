@@ -1,6 +1,7 @@
 package main
 
 import (
+	"embed"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -12,6 +13,11 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
+
+//go:embed index.html logo.png
+var staticFiles embed.FS
+
+const contentTypeHeader = "Content-Type"
 
 // Server represents the HTTP server for the Docker image service
 type Server struct {
@@ -46,9 +52,11 @@ func (s *Server) Run() error {
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/health", s.healthHandler)
-	mux.HandleFunc("/image", s.imageHandler)
-	mux.Handle("/metrics", promhttp.Handler())
+	mux.HandleFunc("GET /{$}", s.homeHandler)
+	mux.HandleFunc("GET /health", s.healthHandler)
+	mux.HandleFunc("GET /image", s.imageHandler)
+	mux.HandleFunc("GET /logo.png", s.logoHandler)
+	mux.Handle("GET /metrics", promhttp.Handler())
 
 	log.Printf("Starting server on %s (cache: %s)\n", s.addr, s.cacheDir)
 	return http.ListenAndServe(s.addr, mux)
@@ -56,22 +64,43 @@ func (s *Server) Run() error {
 
 // healthHandler handles the /health endpoint
 func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 	_, err := fmt.Fprintln(w, "OK")
 	if err != nil {
 		log.Printf("Failed to write health response: %v\n", err)
 	}
 }
 
-// imageHandler handles the /image endpoint
-func (s *Server) imageHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+// homeHandler serves the main website at /
+func (s *Server) homeHandler(w http.ResponseWriter, r *http.Request) {
+	data, err := staticFiles.ReadFile("index.html")
+	if err != nil {
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
+
+	w.Header().Set(contentTypeHeader, "text/html; charset=utf-8")
+	_, err = w.Write(data)
+	if err != nil {
+		log.Printf("Failed to write home page response: %v\n", err)
+	}
+}
+
+// logoHandler serves the logo.png file
+func (s *Server) logoHandler(w http.ResponseWriter, r *http.Request) {
+	data, err := staticFiles.ReadFile("logo.png")
+	if err != nil {
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set(contentTypeHeader, "image/png")
+	_, err = w.Write(data)
+	if err != nil {
+		log.Printf("Failed to write logo response: %v\n", err)
+	}
+}
+
+// imageHandler handles the /image endpoint
+func (s *Server) imageHandler(w http.ResponseWriter, r *http.Request) {
 
 	imageName := r.URL.Query().Get("name")
 	if imageName == "" {
@@ -164,7 +193,7 @@ func (s *Server) serveImageFile(w http.ResponseWriter, r *http.Request, imagePat
 
 	filename := s.getCacheFilename(imageName)
 
-	w.Header().Set("Content-Type", "application/gzip")
+	w.Header().Set(contentTypeHeader, "application/gzip")
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
 
 	http.ServeContent(w, r, filename, fileInfo.ModTime(), file)
@@ -175,7 +204,7 @@ func (s *Server) serveImageFile(w http.ResponseWriter, r *http.Request, imagePat
 
 // writeJSONError writes a JSON error response
 func writeJSONError(w http.ResponseWriter, message string, statusCode int) {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(contentTypeHeader, "application/json")
 	w.WriteHeader(statusCode)
 	err := json.NewEncoder(w).Encode(map[string]string{"error": message})
 	if err != nil {
