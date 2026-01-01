@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Download Docker images</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #fff;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .logo {
+            margin-bottom: 28px;
+        }
+
+        .logo img {
+            height: 92px;
+        }
+
+        .search-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .search-wrapper {
+            display: flex;
+            align-items: center;
+            width: 584px;
+            max-width: 90vw;
+            height: 44px;
+            border: 1px solid #dfe1e5;
+            border-radius: 24px;
+            padding: 0 14px;
+            margin-bottom: 18px;
+        }
+
+        .search-wrapper:hover,
+        .search-wrapper:focus-within {
+            box-shadow: 0 1px 6px rgba(32, 33, 36, 0.28);
+            border-color: rgba(223, 225, 229, 0);
+        }
+
+        .search-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 16px;
+            background: transparent;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn {
+            height: 36px;
+            padding: 0 16px;
+            font-size: 14px;
+            background-color: #f8f9fa;
+            border: 1px solid #f8f9fa;
+            border-radius: 4px;
+            color: #3c4043;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+            background-color: #f8f9fa;
+            border: 1px solid #dadce0;
+            color: #202124;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .status {
+            margin-top: 20px;
+            text-align: center;
+            color: #5f6368;
+            font-size: 14px;
+            min-height: 24px;
+        }
+
+        .status.error {
+            color: #d93025;
+        }
+
+        .error-box {
+            margin-top: 20px;
+            padding: 16px;
+            background-color: #fce8e6;
+            border-radius: 8px;
+            border-left: 4px solid #d93025;
+            max-width: 500px;
+            text-align: left;
+        }
+
+        .error-box .error-title {
+            font-weight: bold;
+            color: #d93025;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .error-box .error-message {
+            color: #5f6368;
+            font-size: 13px;
+            word-break: break-word;
+        }
+
+        .error-box .error-detail {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #f5c6cb;
+            color: #80868b;
+            font-size: 12px;
+            font-family: monospace;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #dfe1e5;
+            border-top-color: #4285f4;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .progress-bar {
+            width: 300px;
+            max-width: 90vw;
+            height: 4px;
+            background-color: #e0e0e0;
+            border-radius: 2px;
+            margin-top: 12px;
+            overflow: hidden;
+            display: none;
+        }
+
+        .progress-bar.visible {
+            display: block;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background-color: #4285f4;
+            border-radius: 2px;
+            transition: width 0.3s ease;
+            width: 0;
+        }
+
+        .progress-fill.indeterminate {
+            width: 30%;
+            animation: indeterminate 1.5s ease-in-out infinite;
+        }
+
+        @keyframes indeterminate {
+            0% {
+                transform: translateX(-100%);
+            }
+            100% {
+                transform: translateX(400%);
+            }
+        }
+
+        .github-ribbon {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 150px;
+            height: 150px;
+            overflow: hidden;
+            z-index: 1000;
+        }
+
+        .github-ribbon a {
+            display: block;
+            width: 200px;
+            padding: 8px 0;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            font-size: 13px;
+            font-weight: bold;
+            text-decoration: none;
+            position: absolute;
+            top: 40px;
+            right: -45px;
+            transform: rotate(45deg);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .github-ribbon a:hover {
+            background-color: #444;
+        }
+    </style>
+</head>
+<body>
+<div class="github-ribbon">
+    <a href="https://github.com/jadolg/DockerImageSave" target="_blank" rel="noopener noreferrer">Fork me on GitHub</a>
+</div>
+<div class="container">
+    <div class="logo">
+        <img src="/logo.png" alt="logo">
+    </div>
+    <form class="search-box" id="downloadForm">
+        <div class="search-wrapper">
+            <input type="text" class="search-input" id="imageName" name="name" placeholder="ubuntu:25.04"
+                   autocomplete="off" autofocus>
+        </div>
+        <div class="buttons">
+            <button type="submit" class="btn" id="downloadBtn">Download</button>
+        </div>
+    </form>
+    <div class="status" id="status"></div>
+    <div class="progress-bar" id="progressBar">
+        <div class="progress-fill" id="progressFill"></div>
+    </div>
+</div>
+
+<script>
+    const form = document.getElementById('downloadForm');
+    const imageNameInput = document.getElementById('imageName');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const status = document.getElementById('status');
+    const progressBar = document.getElementById('progressBar');
+    const progressFill = document.getElementById('progressFill');
+
+    function parseError(errorMessage) {
+        // Try to extract meaningful parts from the error
+        const result = {
+            title: 'Download Failed',
+            message: errorMessage,
+            detail: null
+        };
+
+        // Check for common error patterns
+        if (errorMessage.includes('MANIFEST_UNKNOWN') || errorMessage.includes('manifest unknown')) {
+            result.title = 'Image Not Found';
+            result.message = 'The requested image tag does not exist.';
+            // Try to extract the tag
+            const tagMatch = errorMessage.match(/unknown tag=([^\s}"]+)/);
+            if (tagMatch) {
+                result.detail = `Tag "${tagMatch[1]}" was not found in the registry.`;
+            }
+        } else if (errorMessage.includes('NAME_UNKNOWN') || errorMessage.includes('name unknown')) {
+            result.title = 'Repository Not Found';
+            result.message = 'The requested repository does not exist.';
+        } else if (errorMessage.includes('UNAUTHORIZED') || errorMessage.includes('unauthorized')) {
+            result.title = 'Authentication Required';
+            result.message = 'You need to be authenticated to access this image.';
+        } else if (errorMessage.includes('DENIED') || errorMessage.includes('denied')) {
+            result.title = 'Access Denied';
+            result.message = 'You do not have permission to access this image.';
+        } else if (errorMessage.includes('connection refused') || errorMessage.includes('no such host')) {
+            result.title = 'Connection Error';
+            result.message = 'Could not connect to the registry server.';
+        } else if (errorMessage.includes('timeout') || errorMessage.includes('Timeout')) {
+            result.title = 'Request Timeout';
+            result.message = 'The request took too long to complete.';
+        } else if (errorMessage.includes('missing required') || errorMessage.includes('name') && errorMessage.includes('parameter')) {
+            result.title = 'Missing Image Name';
+            result.message = 'Please provide an image name to download.';
+        } else if (errorMessage.includes('image name cannot be empty')) {
+            result.title = 'Invalid Image Name';
+            result.message = 'Image name cannot be empty.';
+        } else if (errorMessage.includes('image name too long')) {
+            result.title = 'Invalid Image Name';
+            result.message = 'Image name is too long (maximum 256 characters).';
+        } else if (errorMessage.includes('invalid characters') || errorMessage.includes('contains invalid characters')) {
+            result.title = 'Invalid Image Name';
+            result.message = 'Image name contains invalid characters.';
+        } else if (errorMessage.includes('invalid image name')) {
+            result.title = 'Invalid Image Name';
+            result.message = 'The image name format is not valid.';
+            // Extract the specific reason
+            const reasonMatch = errorMessage.match(/invalid image name:\s*(.+)/i);
+            if (reasonMatch) {
+                result.detail = reasonMatch[1];
+            }
+        } else if (errorMessage.includes('authentication failed')) {
+            result.title = 'Authentication Failed';
+            result.message = 'Failed to authenticate with the registry.';
+            // Try to extract status code
+            const statusMatch = errorMessage.match(/(\d{3})\s*-/);
+            if (statusMatch) {
+                result.detail = `Server returned status ${statusMatch[1]}`;
+            }
+        } else if (errorMessage.includes('no WWW-Authenticate header')) {
+            result.title = 'Registry Error';
+            result.message = 'The registry did not provide authentication information.';
+        } else if (errorMessage.includes('unexpected status')) {
+            result.title = 'Registry Error';
+            result.message = 'Received an unexpected response from the registry.';
+            const statusMatch = errorMessage.match(/unexpected status:\s*(\d+)/);
+            if (statusMatch) {
+                result.detail = `Status code: ${statusMatch[1]}`;
+            }
+        } else if (errorMessage.includes('failed to get manifest')) {
+            result.title = 'Manifest Error';
+            result.message = 'Could not retrieve the image manifest from the registry.';
+            // Try to extract status code
+            const statusMatch = errorMessage.match(/(\d{3})\s*-/);
+            if (statusMatch) {
+                result.detail = `Server returned status ${statusMatch[1]}`;
+            }
+        } else if (errorMessage.includes('no suitable manifest found')) {
+            result.title = 'Unsupported Image';
+            result.message = 'No compatible manifest was found for this image.';
+            result.detail = 'The image may not support the requested platform.';
+        } else if (errorMessage.includes('failed to download config')) {
+            result.title = 'Download Error';
+            result.message = 'Failed to download the image configuration.';
+        } else if (errorMessage.includes('failed to download layer')) {
+            result.title = 'Download Error';
+            result.message = 'Failed to download one of the image layers.';
+        } else if (errorMessage.includes('failed to decompress')) {
+            result.title = 'Processing Error';
+            result.message = 'Failed to decompress the image layer.';
+        } else if (errorMessage.includes('failed to create tar')) {
+            result.title = 'Processing Error';
+            result.message = 'Failed to create the final image archive.';
+        } else {
+            // Try to extract a cleaner message from JSON error response
+            const jsonMatch = errorMessage.match(/\d+\s*-\s*(\{.+\})/);
+            if (jsonMatch) {
+                try {
+                    const parsed = JSON.parse(jsonMatch[1]);
+                    if (parsed.errors && parsed.errors[0]) {
+                        result.message = parsed.errors[0].message || errorMessage;
+                        if (parsed.errors[0].detail) {
+                            result.detail = typeof parsed.errors[0].detail === 'string'
+                                ? parsed.errors[0].detail
+                                : JSON.stringify(parsed.errors[0].detail);
+                        }
+                    }
+                } catch (e) {
+                    // Keep original message
+                }
+            }
+        }
+
+        return result;
+    }
+
+    function setStatusWithSpinner(text) {
+        while (status.firstChild) {
+            status.removeChild(status.firstChild);
+        }
+        const spinner = document.createElement('span');
+        spinner.className = 'spinner';
+        status.appendChild(spinner);
+        status.appendChild(document.createTextNode(text));
+    }
+
+    function showError(errorMessage) {
+        const error = parseError(errorMessage);
+
+        while (status.firstChild) {
+            status.removeChild(status.firstChild);
+        }
+        status.classList.remove('error');
+
+        const errorBox = document.createElement('div');
+        errorBox.className = 'error-box';
+
+        const titleDiv = document.createElement('div');
+        titleDiv.className = 'error-title';
+        titleDiv.textContent = error.title;
+        errorBox.appendChild(titleDiv);
+
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'error-message';
+        messageDiv.textContent = error.message;
+        errorBox.appendChild(messageDiv);
+
+        if (error.detail) {
+            const detailDiv = document.createElement('div');
+            detailDiv.className = 'error-detail';
+            detailDiv.textContent = error.detail;
+            errorBox.appendChild(detailDiv);
+        }
+
+        status.appendChild(errorBox);
+    }
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const imageName = imageNameInput.value.trim();
+        if (!imageName) {
+            status.textContent = 'Please enter an image name';
+            status.classList.add('error');
+            return;
+        }
+
+        // Reset and show progress
+        status.classList.remove('error');
+        setStatusWithSpinner('Preparing download...');
+        progressBar.classList.add('visible');
+        progressFill.style.width = '0%';
+        progressFill.classList.add('indeterminate');
+        downloadBtn.disabled = true;
+
+        try {
+            const response = await fetch(`/image?name=${encodeURIComponent(imageName)}`);
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Download failed');
+            }
+
+            // Get content length for progress
+            const contentLength = response.headers.get('Content-Length');
+            const totalBytes = contentLength ? parseInt(contentLength, 10) : 0;
+
+            // Get filename from Content-Disposition header
+            const disposition = response.headers.get('Content-Disposition');
+            let filename = 'image.tar.gz';
+            if (disposition) {
+                const match = disposition.match(/filename="(.+)"/);
+                if (match) {
+                    // Sanitize filename: only allow alphanumeric, dash, underscore, dot
+                    let sanitized = match[1]
+                        .replace(/[^a-zA-Z0-9._-]/g, '_')  // Replace unsafe chars with underscore
+                        .replace(/^\.+/, '')               // Remove leading dots
+                        .substring(0, 255);                // Limit length
+                    // Validate the result matches expected pattern
+                    if (sanitized && /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(sanitized)) {
+                        filename = sanitized;
+                    }
+                }
+            }
+
+            // Read the response as a stream to track progress
+            const reader = response.body.getReader();
+            const chunks = [];
+            let receivedBytes = 0;
+
+            progressFill.classList.remove('indeterminate');
+            setStatusWithSpinner('Downloading...');
+
+            while (true) {
+                const {done, value} = await reader.read();
+                if (done) break;
+
+                chunks.push(value);
+                receivedBytes += value.length;
+
+                if (totalBytes > 0) {
+                    const rawPercent = Math.round((receivedBytes / totalBytes) * 100);
+                    const percent = Number.isFinite(rawPercent) ? Math.min(100, Math.max(0, rawPercent)) : 0;
+                    progressFill.style.width = String(percent) + '%';
+                    const rawSizeMB = receivedBytes / (1024 * 1024);
+                    const rawTotalMB = totalBytes / (1024 * 1024);
+                    const sizeMB = Number.isFinite(rawSizeMB) ? rawSizeMB.toFixed(1) : '0.0';
+                    const totalMB = Number.isFinite(rawTotalMB) ? rawTotalMB.toFixed(1) : '0.0';
+                    setStatusWithSpinner('Downloading... ' + sizeMB + ' MB / ' + totalMB + ' MB (' + percent + '%)');
+                } else {
+                    const rawSizeMB = receivedBytes / (1024 * 1024);
+                    const sizeMB = Number.isFinite(rawSizeMB) ? rawSizeMB.toFixed(1) : '0.0';
+                    setStatusWithSpinner('Downloading... ' + sizeMB + ' MB');
+                }
+            }
+
+            // Create blob and trigger download
+            const blob = new Blob(chunks);
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            const finalSizeMB = (receivedBytes / (1024 * 1024)).toFixed(1);
+            status.textContent = `Download complete! (${finalSizeMB} MB)`;
+            progressFill.style.width = '100%';
+
+        } catch (error) {
+            showError(error.message);
+            progressBar.classList.remove('visible');
+        } finally {
+            downloadBtn.disabled = false;
+        }
+    });
+</script>
+</body>
+</html>
