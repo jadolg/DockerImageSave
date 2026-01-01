@@ -194,9 +194,43 @@
                 transform: translateX(400%);
             }
         }
+
+        .github-ribbon {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 150px;
+            height: 150px;
+            overflow: hidden;
+            z-index: 1000;
+        }
+
+        .github-ribbon a {
+            display: block;
+            width: 200px;
+            padding: 8px 0;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            font-size: 13px;
+            font-weight: bold;
+            text-decoration: none;
+            position: absolute;
+            top: 40px;
+            right: -45px;
+            transform: rotate(45deg);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .github-ribbon a:hover {
+            background-color: #444;
+        }
     </style>
 </head>
 <body>
+<div class="github-ribbon">
+    <a href="https://github.com/jadolg/DockerImageSave" target="_blank" rel="noopener noreferrer">Fork me on GitHub</a>
+</div>
 <div class="container">
     <div class="logo">
         <img src="/logo.png" alt="logo">
@@ -341,23 +375,45 @@
         return result;
     }
 
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
+    function setStatusWithSpinner(text) {
+        while (status.firstChild) {
+            status.removeChild(status.firstChild);
+        }
+        const spinner = document.createElement('span');
+        spinner.className = 'spinner';
+        status.appendChild(spinner);
+        status.appendChild(document.createTextNode(text));
     }
 
     function showError(errorMessage) {
         const error = parseError(errorMessage);
-        let html = `<div class="error-box">
-            <div class="error-title">${escapeHtml(error.title)}</div>
-            <div class="error-message">${escapeHtml(error.message)}</div>`;
-        if (error.detail) {
-            html += `<div class="error-detail">${escapeHtml(error.detail)}</div>`;
+
+        while (status.firstChild) {
+            status.removeChild(status.firstChild);
         }
-        html += '</div>';
-        status.innerHTML = html;
         status.classList.remove('error');
+
+        const errorBox = document.createElement('div');
+        errorBox.className = 'error-box';
+
+        const titleDiv = document.createElement('div');
+        titleDiv.className = 'error-title';
+        titleDiv.textContent = error.title;
+        errorBox.appendChild(titleDiv);
+
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'error-message';
+        messageDiv.textContent = error.message;
+        errorBox.appendChild(messageDiv);
+
+        if (error.detail) {
+            const detailDiv = document.createElement('div');
+            detailDiv.className = 'error-detail';
+            detailDiv.textContent = error.detail;
+            errorBox.appendChild(detailDiv);
+        }
+
+        status.appendChild(errorBox);
     }
 
     form.addEventListener('submit', async (e) => {
@@ -372,7 +428,7 @@
 
         // Reset and show progress
         status.classList.remove('error');
-        status.innerHTML = '<span class="spinner"></span>Preparing download...';
+        setStatusWithSpinner('Preparing download...');
         progressBar.classList.add('visible');
         progressFill.style.width = '0%';
         progressFill.classList.add('indeterminate');
@@ -395,7 +451,17 @@
             let filename = 'image.tar.gz';
             if (disposition) {
                 const match = disposition.match(/filename="(.+)"/);
-                if (match) filename = match[1];
+                if (match) {
+                    // Sanitize filename: only allow alphanumeric, dash, underscore, dot
+                    let sanitized = match[1]
+                        .replace(/[^a-zA-Z0-9._-]/g, '_')  // Replace unsafe chars with underscore
+                        .replace(/^\.+/, '')               // Remove leading dots
+                        .substring(0, 255);                // Limit length
+                    // Validate the result matches expected pattern
+                    if (sanitized && /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(sanitized)) {
+                        filename = sanitized;
+                    }
+                }
             }
 
             // Read the response as a stream to track progress
@@ -404,7 +470,7 @@
             let receivedBytes = 0;
 
             progressFill.classList.remove('indeterminate');
-            status.innerHTML = '<span class="spinner"></span>Downloading...';
+            setStatusWithSpinner('Downloading...');
 
             while (true) {
                 const {done, value} = await reader.read();
@@ -414,14 +480,18 @@
                 receivedBytes += value.length;
 
                 if (totalBytes > 0) {
-                    const percent = Math.round((receivedBytes / totalBytes) * 100);
-                    progressFill.style.width = `${percent}%`;
-                    const sizeMB = (receivedBytes / (1024 * 1024)).toFixed(1);
-                    const totalMB = (totalBytes / (1024 * 1024)).toFixed(1);
-                    status.innerHTML = `<span class="spinner"></span>Downloading... ${sizeMB} MB / ${totalMB} MB (${percent}%)`;
+                    const rawPercent = Math.round((receivedBytes / totalBytes) * 100);
+                    const percent = Number.isFinite(rawPercent) ? Math.min(100, Math.max(0, rawPercent)) : 0;
+                    progressFill.style.width = String(percent) + '%';
+                    const rawSizeMB = receivedBytes / (1024 * 1024);
+                    const rawTotalMB = totalBytes / (1024 * 1024);
+                    const sizeMB = Number.isFinite(rawSizeMB) ? rawSizeMB.toFixed(1) : '0.0';
+                    const totalMB = Number.isFinite(rawTotalMB) ? rawTotalMB.toFixed(1) : '0.0';
+                    setStatusWithSpinner('Downloading... ' + sizeMB + ' MB / ' + totalMB + ' MB (' + percent + '%)');
                 } else {
-                    const sizeMB = (receivedBytes / (1024 * 1024)).toFixed(1);
-                    status.innerHTML = `<span class="spinner"></span>Downloading... ${sizeMB} MB`;
+                    const rawSizeMB = receivedBytes / (1024 * 1024);
+                    const sizeMB = Number.isFinite(rawSizeMB) ? rawSizeMB.toFixed(1) : '0.0';
+                    setStatusWithSpinner('Downloading... ' + sizeMB + ' MB');
                 }
             }
 
