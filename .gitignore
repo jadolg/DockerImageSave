@@ -5,3 +5,4 @@ vendor/
 /config.yaml
 # Added by goreleaser init:
 dist/
+/DockerImageSave
