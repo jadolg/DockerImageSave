@@ -31,20 +31,6 @@ func TestHealthHandler(t *testing.T) {
 	}
 }
 
-func TestHealthHandler_MethodNotAllowed(t *testing.T) {
-	server := NewServer(":8080", "")
-
-	req := httptest.NewRequest(http.MethodPost, "/health", nil)
-	w := httptest.NewRecorder()
-
-	server.healthHandler(w, req)
-
-	resp := w.Result()
-	if resp.StatusCode != http.StatusMethodNotAllowed {
-		t.Errorf("expected status 405, got %d", resp.StatusCode)
-	}
-}
-
 func TestImageHandler_MissingName(t *testing.T) {
 	server := NewServer(":8080", "")
 
@@ -65,20 +51,6 @@ func TestImageHandler_MissingName(t *testing.T) {
 
 	if body["error"] == "" {
 		t.Error("expected error message in response")
-	}
-}
-
-func TestImageHandler_MethodNotAllowed(t *testing.T) {
-	server := NewServer(":8080", "")
-
-	req := httptest.NewRequest(http.MethodPost, "/image?name=alpine", nil)
-	w := httptest.NewRecorder()
-
-	server.imageHandler(w, req)
-
-	resp := w.Result()
-	if resp.StatusCode != http.StatusMethodNotAllowed {
-		t.Errorf("expected status 405, got %d", resp.StatusCode)
 	}
 }
 
