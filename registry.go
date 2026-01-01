@@ -89,7 +89,7 @@ func ParseImageReference(ref string) ImageReference {
 
 	parts := strings.Split(ref, "/")
 	if len(parts) > 1 && (strings.Contains(parts[0], ".") || strings.Contains(parts[0], ":")) {
-		result.Registry = parts[0]
+		result.Registry = normalizeRegistry(parts[0])
 		ref = strings.Join(parts[1:], "/")
 	}
 

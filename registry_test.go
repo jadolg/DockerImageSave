@@ -75,6 +75,34 @@ func TestParseImageReference_RegistryWithPort(t *testing.T) {
 	}
 }
 
+func TestParseImageReference_DockerIO(t *testing.T) {
+	ref := ParseImageReference("docker.io/bitnamilegacy/mongodb:6.0")
+
+	if ref.Registry != "registry-1.docker.io" {
+		t.Errorf("expected registry 'registry-1.docker.io', got '%s'", ref.Registry)
+	}
+	if ref.Repository != "bitnamilegacy/mongodb" {
+		t.Errorf("expected repository 'bitnamilegacy/mongodb', got '%s'", ref.Repository)
+	}
+	if ref.Tag != "6.0" {
+		t.Errorf("expected tag '6.0', got '%s'", ref.Tag)
+	}
+}
+
+func TestParseImageReference_IndexDockerIO(t *testing.T) {
+	ref := ParseImageReference("index.docker.io/library/nginx:latest")
+
+	if ref.Registry != "registry-1.docker.io" {
+		t.Errorf("expected registry 'registry-1.docker.io', got '%s'", ref.Registry)
+	}
+	if ref.Repository != "library/nginx" {
+		t.Errorf("expected repository 'library/nginx', got '%s'", ref.Repository)
+	}
+	if ref.Tag != "latest" {
+		t.Errorf("expected tag 'latest', got '%s'", ref.Tag)
+	}
+}
+
 func TestParseAuthHeader(t *testing.T) {
 	header := `Bearer realm="https://auth.docker.io/token",service="registry.docker.io",scope="repository:library/alpine:pull"`
 
