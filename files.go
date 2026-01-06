@@ -104,13 +104,18 @@ func createTar(srcDir, destPath string) error {
 			return nil
 		}
 
-		f, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-		defer closeWithLog(f, "file")
-
-		_, err = io.Copy(tw, f)
-		return err
+		return copyFileToTar(tw, path)
 	})
+}
+
+// copyFileToTar copies a single file to a tar writer, ensuring the file is closed immediately after copying
+func copyFileToTar(tw *tar.Writer, path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer closeWithLog(f, "file")
+
+	_, err = io.Copy(tw, f)
+	return err
 }
