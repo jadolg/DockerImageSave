@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"golang.org/x/sync/singleflight"
 )
 
 //go:embed index.html logo.png
@@ -21,8 +22,9 @@ const contentTypeHeader = "Content-Type"
 
 // Server represents the HTTP server for the Docker image service
 type Server struct {
-	addr     string
-	cacheDir string
+	addr          string
+	cacheDir      string
+	downloadGroup singleflight.Group
 }
 
 // NewServer creates a new server instance with a cache directory
@@ -124,13 +126,16 @@ func (s *Server) imageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("Downloading image: %s\n", imageName)
-	imagePath, err := DownloadImage(imageName, s.cacheDir)
+	result, err, _ := s.downloadGroup.Do(imageName, func() (interface{}, error) {
+		return DownloadImage(imageName, s.cacheDir)
+	})
 	if err != nil {
 		log.Printf("Failed to download image %s: %v\n", imageName, err)
 		errorsTotalMetric.Inc()
 		writeJSONError(w, fmt.Sprintf("failed to download image: %v", err), http.StatusInternalServerError)
 		return
 	}
+	imagePath := result.(string)
 
 	s.serveImageFile(w, r, imagePath, imageName)
 }
