@@ -341,10 +341,10 @@ func TestGetCacheFilename_WithPlatform(t *testing.T) {
 	server := NewServerWithCache(":8080", "")
 
 	tests := []struct {
-		name       string
-		imageName  string
-		platform   string
-		expected   string
+		name      string
+		imageName string
+		platform  string
+		expected  string
 	}{
 		{
 			name:      "default platform",
@@ -379,6 +379,27 @@ func TestGetCacheFilename_WithPlatform(t *testing.T) {
 				t.Errorf("expected '%s', got '%s'", tt.expected, result)
 			}
 		})
+	}
+}
+
+func TestImageHandler_PlatformNormalization(t *testing.T) {
+	// This test verifies that requests without platform and with explicit "linux/amd64"
+	// result in the same cache behavior (same filename)
+	server := NewServerWithCache(":8080", "")
+
+	// Both should produce the same cache filename
+	filenameEmpty := server.getCacheFilename("alpine:latest", "")
+	filenameExplicit := server.getCacheFilename("alpine:latest", "linux/amd64")
+
+	if filenameEmpty != filenameExplicit {
+		t.Errorf("cache filenames should match for empty and explicit linux/amd64 platform\nempty: %s\nexplicit: %s",
+			filenameEmpty, filenameExplicit)
+	}
+
+	// Verify the normalized filename format
+	expected := "library_alpine_latest_linux_amd64.tar.gz"
+	if filenameEmpty != expected {
+		t.Errorf("expected filename '%s', got '%s'", expected, filenameEmpty)
 	}
 }
 

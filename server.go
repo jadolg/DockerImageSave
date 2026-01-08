@@ -124,6 +124,11 @@ func (s *Server) imageHandler(w http.ResponseWriter, r *http.Request) {
 			writeJSONError(w, fmt.Sprintf("invalid platform: %v", err), http.StatusBadRequest)
 			return
 		}
+	} else {
+		// Normalize empty platform to default to ensure consistent cache keys
+		// This prevents duplicate downloads when one request omits platform
+		// and another explicitly specifies "linux/amd64"
+		platform = DefaultPlatform().String()
 	}
 
 	// Create a unique cache key combining image name and platform
