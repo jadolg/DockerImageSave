@@ -12,6 +12,16 @@ type Config struct {
 	Port       int                       `yaml:"port"`
 	CacheDir   string                    `yaml:"cache_dir"`
 	Registries map[string]RegistryConfig `yaml:"registries"`
+	Auth       *AuthConfig               `yaml:"auth"`
+}
+
+// AuthConfig holds authentication settings for private hosting
+type AuthConfig struct {
+	Enabled  bool   `yaml:"enabled"`
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
+	// APIKeys allows multiple API keys for programmatic access
+	APIKeys []string `yaml:"api_keys"`
 }
 
 // RegistryConfig holds credentials for a specific registry
@@ -53,6 +63,17 @@ func (c *Config) Validate() error {
 	if c.Port < 1 || c.Port > 65535 {
 		return fmt.Errorf("invalid port: %d (must be between 1 and 65535)", c.Port)
 	}
+
+	// Validate auth configuration
+	if c.Auth != nil && c.Auth.Enabled {
+		if c.Auth.Username == "" && len(c.Auth.APIKeys) == 0 {
+			return fmt.Errorf("auth enabled but no credentials configured: set username/password or api_keys")
+		}
+		if c.Auth.Username != "" && c.Auth.Password == "" {
+			return fmt.Errorf("auth username set but password is empty")
+		}
+	}
+
 	return nil
 }
 

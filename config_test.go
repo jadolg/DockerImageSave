@@ -151,3 +151,162 @@ func TestApplyCredentials(t *testing.T) {
 		t.Errorf("expected password 'testpass', got '%s'", creds.Password)
 	}
 }
+
+func TestLoadConfig_WithAuth(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "config-test-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanupTempDir(t, tempDir)
+
+	configContent := `
+port: 8080
+auth:
+  enabled: true
+  username: admin
+  password: secret123
+  api_keys:
+    - key1
+    - key2
+`
+	configPath := filepath.Join(tempDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	config, err := LoadConfig(configPath)
+	if err != nil {
+		t.Fatalf("failed to load config: %v", err)
+	}
+
+	if config.Auth == nil {
+		t.Fatal("expected auth config to be set")
+	}
+
+	if !config.Auth.Enabled {
+		t.Error("expected auth to be enabled")
+	}
+
+	if config.Auth.Username != "admin" {
+		t.Errorf("expected username 'admin', got '%s'", config.Auth.Username)
+	}
+
+	if config.Auth.Password != "secret123" {
+		t.Errorf("expected password 'secret123', got '%s'", config.Auth.Password)
+	}
+
+	if len(config.Auth.APIKeys) != 2 {
+		t.Errorf("expected 2 API keys, got %d", len(config.Auth.APIKeys))
+	}
+
+	if config.Auth.APIKeys[0] != "key1" {
+		t.Errorf("expected first API key 'key1', got '%s'", config.Auth.APIKeys[0])
+	}
+}
+
+func TestLoadConfig_AuthDisabled(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "config-test-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanupTempDir(t, tempDir)
+
+	configContent := `
+port: 8080
+auth:
+  enabled: false
+`
+	configPath := filepath.Join(tempDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	config, err := LoadConfig(configPath)
+	if err != nil {
+		t.Fatalf("failed to load config: %v", err)
+	}
+
+	if config.Auth == nil {
+		t.Fatal("expected auth config to be set")
+	}
+
+	if config.Auth.Enabled {
+		t.Error("expected auth to be disabled")
+	}
+}
+
+func TestLoadConfig_AuthValidation_NoCredentials(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "config-test-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanupTempDir(t, tempDir)
+
+	configContent := `
+port: 8080
+auth:
+  enabled: true
+`
+	configPath := filepath.Join(tempDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = LoadConfig(configPath)
+	if err == nil {
+		t.Error("expected error when auth enabled but no credentials")
+	}
+}
+
+func TestLoadConfig_AuthValidation_UsernameWithoutPassword(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "config-test-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanupTempDir(t, tempDir)
+
+	configContent := `
+port: 8080
+auth:
+  enabled: true
+  username: admin
+`
+	configPath := filepath.Join(tempDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = LoadConfig(configPath)
+	if err == nil {
+		t.Error("expected error when username set but password empty")
+	}
+}
+
+func TestLoadConfig_AuthValidation_OnlyAPIKeys(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "config-test-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanupTempDir(t, tempDir)
+
+	configContent := `
+port: 8080
+auth:
+  enabled: true
+  api_keys:
+    - my-api-key
+`
+	configPath := filepath.Join(tempDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	config, err := LoadConfig(configPath)
+	if err != nil {
+		t.Fatalf("expected no error when only API keys configured: %v", err)
+	}
+
+	if len(config.Auth.APIKeys) != 1 {
+		t.Errorf("expected 1 API key, got %d", len(config.Auth.APIKeys))
+	}
+}
