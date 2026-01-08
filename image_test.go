@@ -324,7 +324,11 @@ func TestDownloadImage_WithPlatform(t *testing.T) {
 			}
 
 			// Verify filename includes platform
-			expectedSuffix := "_linux_" + tt.platform[6:] + ".tar.gz"
+			platformParts := strings.Split(tt.platform, "/")
+			if len(platformParts) != 2 {
+				t.Fatalf("invalid platform format %q, expected <os>/<arch>", tt.platform)
+			}
+			expectedSuffix := "_" + platformParts[0] + "_" + platformParts[1] + ".tar.gz"
 			if !strings.HasSuffix(imagePath, expectedSuffix) {
 				t.Errorf("expected filename to end with '%s', got '%s'", expectedSuffix, imagePath)
 			}
