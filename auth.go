@@ -59,7 +59,8 @@ func (a *AuthMiddleware) authenticate(r *http.Request) bool {
 		return a.validateAPIKey(apiKey)
 	}
 
-	// Also check query parameter for API key (useful for curl/wget)
+	// Also check query parameter for API key (useful for curl/wget).
+	// NOTE: Query params are less secure (logged in URLs); prefer X-API-Key header in production.
 	if apiKey := r.URL.Query().Get("api_key"); apiKey != "" {
 		return a.validateAPIKey(apiKey)
 	}
