@@ -409,4 +409,57 @@ func TestImageHandler_PlatformNormalization(t *testing.T) {
 	}
 }
 
+func TestSanitizePathComponent(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"normal string", "alpine", "alpine"},
+		{"with forward slash", "library/alpine", "library_alpine"},
+		{"with backslash", "library\\alpine", "library_alpine"},
+		{"path traversal", "../../../etc/passwd", "___etc_passwd"},
+		{"double dots", "foo..bar", "foobar"},
+		{"leading dot", ".hidden", "hidden"},
+		{"multiple leading dots", "...test", "test"},
+		{"complex traversal", "../../foo/../bar", "__foo__bar"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := sanitizePathComponent(tt.input)
+			if result != tt.expected {
+				t.Errorf("sanitizePathComponent(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestValidatePathContainment(t *testing.T) {
+	tests := []struct {
+		name      string
+		basePath  string
+		fullPath  string
+		expectErr bool
+	}{
+		{"valid path", "/cache", "/cache/file.tar.gz", false},
+		{"valid nested path", "/cache", "/cache/subdir/file.tar.gz", false},
+		{"path traversal", "/cache", "/cache/../etc/passwd", true},
+		{"absolute escape", "/cache", "/etc/passwd", true},
+		{"same as base", "/cache", "/cache", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validatePathContainment(tt.basePath, tt.fullPath)
+			if tt.expectErr && err == nil {
+				t.Errorf("expected error for basePath=%q, fullPath=%q", tt.basePath, tt.fullPath)
+			}
+			if !tt.expectErr && err != nil {
+				t.Errorf("unexpected error for basePath=%q, fullPath=%q: %v", tt.basePath, tt.fullPath, err)
+			}
+		})
+	}
+}
+
 var _ = fmt.Sprintf

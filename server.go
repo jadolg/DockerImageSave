@@ -139,6 +139,13 @@ func (s *Server) imageHandler(w http.ResponseWriter, r *http.Request) {
 	cacheFilename := s.getCacheFilename(imageName, platform)
 	cachePath := filepath.Join(s.cacheDir, cacheFilename)
 
+	// Validate that the cache path stays within the cache directory (prevent path traversal)
+	if err := validatePathContainment(s.cacheDir, cachePath); err != nil {
+		log.Printf("Security: path traversal attempt detected for image %s: %v\n", imageName, err)
+		writeJSONError(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
 	if _, err := os.Stat(cachePath); err == nil {
 		log.Printf("Serving cached image: %s (platform: %s)\n", imageName, platform)
 		s.serveImageFile(w, r, cachePath, imageName, platform)
@@ -216,9 +223,36 @@ func sanitizeImageName(imageName string) (string, error) {
 func (s *Server) getCacheFilename(imageName string, platform string) string {
 	ref := ParseImageReference(imageName)
 	ref.Platform = ParsePlatform(platform)
-	safeImageName := strings.ReplaceAll(ref.Repository, "/", "_")
-	safePlatform := strings.ReplaceAll(ref.Platform.String(), "/", "_")
-	return fmt.Sprintf("%s_%s_%s.tar.gz", safeImageName, ref.Tag, safePlatform)
+	safeImageName := sanitizePathComponent(ref.Repository)
+	safeTag := sanitizePathComponent(ref.Tag)
+	safePlatform := sanitizePathComponent(ref.Platform.String())
+	return fmt.Sprintf("%s_%s_%s.tar.gz", safeImageName, safeTag, safePlatform)
+}
+
+// sanitizePathComponent removes dangerous characters from a path component
+// to prevent path traversal attacks
+func sanitizePathComponent(s string) string {
+	// Replace path separators with underscores
+	s = strings.ReplaceAll(s, "/", "_")
+	s = strings.ReplaceAll(s, "\\", "_")
+	// Remove path traversal sequences
+	s = strings.ReplaceAll(s, "..", "")
+	// Remove any remaining dots at the start (hidden files)
+	s = strings.TrimLeft(s, ".")
+	return s
+}
+
+// validatePathContainment ensures the final path stays within the base directory
+func validatePathContainment(basePath, fullPath string) error {
+	// Clean both paths for comparison
+	cleanBase := filepath.Clean(basePath)
+	cleanFull := filepath.Clean(fullPath)
+
+	// Ensure the full path starts with the base path
+	if !strings.HasPrefix(cleanFull, cleanBase+string(filepath.Separator)) && cleanFull != cleanBase {
+		return fmt.Errorf("path traversal detected: path escapes base directory")
+	}
+	return nil
 }
 
 // serveImageFile streams an image tar file to the response with Range request support
