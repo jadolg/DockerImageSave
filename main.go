@@ -50,8 +50,12 @@ func main() {
 
 		log.Printf("Loaded configuration from %s", configFile)
 		if authConfig != nil {
-			log.Printf("Auth config: enabled=%v, username=%s, apikeys=%d",
-				authConfig.Enabled, authConfig.Username, len(authConfig.APIKeys))
+			log.Printf(
+				"Auth config: enabled=%v, basic_auth_configured=%v, api_keys_configured=%d",
+				authConfig.Enabled,
+				authConfig.Username != "",
+				len(authConfig.APIKeys),
+			)
 		}
 	} else {
 		addr = ":8080"
