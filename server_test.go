@@ -106,7 +106,7 @@ func TestServeImageFile_RangeRequest(t *testing.T) {
 		req.Header.Set("Range", "bytes=0-9")
 		w := httptest.NewRecorder()
 
-		server.serveImageFile(w, req, testFile, "test:image")
+		server.serveImageFile(w, req, testFile, "test:image", "")
 
 		resp := w.Result()
 		if resp.StatusCode != http.StatusPartialContent {
@@ -130,7 +130,7 @@ func TestServeImageFile_RangeRequest(t *testing.T) {
 		req.Header.Set("Range", "bytes=10-19")
 		w := httptest.NewRecorder()
 
-		server.serveImageFile(w, req, testFile, "test:image")
+		server.serveImageFile(w, req, testFile, "test:image", "")
 
 		resp := w.Result()
 		if resp.StatusCode != http.StatusPartialContent {
@@ -155,13 +155,13 @@ func TestServeImageFile_RangeRequest(t *testing.T) {
 		req1 := httptest.NewRequest(http.MethodGet, "/image", nil)
 		req1.Header.Set("Range", "bytes=0-9")
 		w1 := httptest.NewRecorder()
-		server.serveImageFile(w1, req1, testFile, "test:image")
+		server.serveImageFile(w1, req1, testFile, "test:image", "")
 		combined.Write(w1.Body.Bytes())
 
 		req2 := httptest.NewRequest(http.MethodGet, "/image", nil)
 		req2.Header.Set("Range", "bytes=10-")
 		w2 := httptest.NewRecorder()
-		server.serveImageFile(w2, req2, testFile, "test:image")
+		server.serveImageFile(w2, req2, testFile, "test:image", "")
 		combined.Write(w2.Body.Bytes())
 
 		if !bytes.Equal(combined.Bytes(), testContent) {
@@ -174,7 +174,7 @@ func TestServeImageFile_RangeRequest(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/image", nil)
 		w := httptest.NewRecorder()
 
-		server.serveImageFile(w, req, testFile, "test:image")
+		server.serveImageFile(w, req, testFile, "test:image", "")
 
 		resp := w.Result()
 		if resp.StatusCode != http.StatusOK {
@@ -212,11 +212,173 @@ func TestServeImageFile_InvalidRange(t *testing.T) {
 	req.Header.Set("Range", "bytes=100-200")
 	w := httptest.NewRecorder()
 
-	server.serveImageFile(w, req, testFile, "test:image")
+	server.serveImageFile(w, req, testFile, "test:image", "")
 
 	resp := w.Result()
 	if resp.StatusCode != http.StatusRequestedRangeNotSatisfiable {
 		t.Errorf("expected status 416, got %d", resp.StatusCode)
+	}
+}
+
+func TestImageHandler_WithPlatform(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	server := NewServer(":8080", "")
+
+	// Test with linux/amd64 platform
+	req := httptest.NewRequest(http.MethodGet, "/image?name=alpine:latest&platform=linux/amd64", nil)
+	w := httptest.NewRecorder()
+
+	server.imageHandler(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	contentType := resp.Header.Get("Content-Type")
+	if contentType != "application/gzip" {
+		t.Errorf("expected Content-Type 'application/gzip', got '%s'", contentType)
+	}
+}
+
+func TestImageHandler_WithURLEncodedPlatform(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	server := NewServer(":8080", "")
+
+	// Test with URL-encoded platform (linux%2Famd64)
+	req := httptest.NewRequest(http.MethodGet, "/image?name=alpine:latest&platform=linux%2Famd64", nil)
+	w := httptest.NewRecorder()
+
+	server.imageHandler(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected status 200, got %d", resp.StatusCode)
+	}
+}
+
+func TestImageHandler_InvalidPlatform(t *testing.T) {
+	server := NewServer(":8080", "")
+
+	tests := []struct {
+		name     string
+		platform string
+	}{
+		{"invalid format", "invalid"},
+		{"unsupported OS", "bsd/amd64"},
+		{"unsupported arch", "linux/mips"},
+		{"empty parts", "/amd64"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/image?name=alpine:latest&platform="+tt.platform, nil)
+			w := httptest.NewRecorder()
+
+			server.imageHandler(w, req)
+
+			resp := w.Result()
+			if resp.StatusCode != http.StatusBadRequest {
+				t.Errorf("expected status 400, got %d", resp.StatusCode)
+			}
+
+			var body map[string]string
+			if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+				t.Fatalf("failed to decode response: %v", err)
+			}
+
+			if body["error"] == "" {
+				t.Error("expected error message in response")
+			}
+		})
+	}
+}
+
+func TestValidatePlatform(t *testing.T) {
+	tests := []struct {
+		name      string
+		platform  string
+		expectErr bool
+	}{
+		{"linux/amd64", "linux/amd64", false},
+		{"linux/arm64", "linux/arm64", false},
+		{"linux/arm", "linux/arm", false},
+		{"linux/386", "linux/386", false},
+		{"linux/ppc64le", "linux/ppc64le", false},
+		{"linux/s390x", "linux/s390x", false},
+		{"linux/riscv64", "linux/riscv64", false},
+		{"windows/amd64", "windows/amd64", false},
+		{"darwin/amd64", "darwin/amd64", false},
+		{"darwin/arm64", "darwin/arm64", false},
+		{"invalid format", "invalid", true},
+		{"unsupported OS", "bsd/amd64", true},
+		{"unsupported arch", "linux/mips", true},
+		{"too many parts", "linux/amd64/v2", true},
+		{"empty OS", "/amd64", true},
+		{"empty arch", "linux/", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validatePlatform(tt.platform)
+			if tt.expectErr && err == nil {
+				t.Errorf("expected error for platform '%s', got nil", tt.platform)
+			}
+			if !tt.expectErr && err != nil {
+				t.Errorf("unexpected error for platform '%s': %v", tt.platform, err)
+			}
+		})
+	}
+}
+
+func TestGetCacheFilename_WithPlatform(t *testing.T) {
+	server := NewServerWithCache(":8080", "")
+
+	tests := []struct {
+		name       string
+		imageName  string
+		platform   string
+		expected   string
+	}{
+		{
+			name:      "default platform",
+			imageName: "alpine:latest",
+			platform:  "",
+			expected:  "library_alpine_latest_linux_amd64.tar.gz",
+		},
+		{
+			name:      "linux/amd64",
+			imageName: "alpine:latest",
+			platform:  "linux/amd64",
+			expected:  "library_alpine_latest_linux_amd64.tar.gz",
+		},
+		{
+			name:      "linux/arm64",
+			imageName: "alpine:latest",
+			platform:  "linux/arm64",
+			expected:  "library_alpine_latest_linux_arm64.tar.gz",
+		},
+		{
+			name:      "custom registry with platform",
+			imageName: "gcr.io/myproject/myimage:v1.0",
+			platform:  "linux/arm64",
+			expected:  "myproject_myimage_v1.0_linux_arm64.tar.gz",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := server.getCacheFilename(tt.imageName, tt.platform)
+			if result != tt.expected {
+				t.Errorf("expected '%s', got '%s'", tt.expected, result)
+			}
+		})
 	}
 }
 

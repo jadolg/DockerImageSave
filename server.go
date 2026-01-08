@@ -116,18 +116,30 @@ func (s *Server) imageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cacheFilename := s.getCacheFilename(imageName)
+	// Parse platform parameter (e.g., "linux/amd64", "linux/arm64")
+	// URL-encoded slashes (%2F) are automatically decoded by Go's URL parser
+	platform := r.URL.Query().Get("platform")
+	if platform != "" {
+		if err := validatePlatform(platform); err != nil {
+			writeJSONError(w, fmt.Sprintf("invalid platform: %v", err), http.StatusBadRequest)
+			return
+		}
+	}
+
+	// Create a unique cache key combining image name and platform
+	cacheKey := imageName + ":" + platform
+	cacheFilename := s.getCacheFilename(imageName, platform)
 	cachePath := filepath.Join(s.cacheDir, cacheFilename)
 
 	if _, err := os.Stat(cachePath); err == nil {
-		log.Printf("Serving cached image: %s\n", imageName)
-		s.serveImageFile(w, r, cachePath, imageName)
+		log.Printf("Serving cached image: %s (platform: %s)\n", imageName, platform)
+		s.serveImageFile(w, r, cachePath, imageName, platform)
 		return
 	}
 
-	log.Printf("Downloading image: %s\n", imageName)
-	result, err, _ := s.downloadGroup.Do(imageName, func() (interface{}, error) {
-		return DownloadImage(imageName, s.cacheDir)
+	log.Printf("Downloading image: %s (platform: %s)\n", imageName, platform)
+	result, err, _ := s.downloadGroup.Do(cacheKey, func() (interface{}, error) {
+		return DownloadImage(imageName, s.cacheDir, platform)
 	})
 	if err != nil {
 		log.Printf("Failed to download image %s: %v\n", imageName, err)
@@ -137,7 +149,31 @@ func (s *Server) imageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	imagePath := result.(string)
 
-	s.serveImageFile(w, r, imagePath, imageName)
+	s.serveImageFile(w, r, imagePath, imageName, platform)
+}
+
+// validatePlatform validates the platform string format
+func validatePlatform(platform string) error {
+	parts := strings.Split(platform, "/")
+	if len(parts) != 2 {
+		return fmt.Errorf("platform must be in format 'os/architecture' (e.g., 'linux/amd64')")
+	}
+	os := parts[0]
+	arch := parts[1]
+
+	// Validate OS
+	validOS := map[string]bool{"linux": true, "windows": true, "darwin": true}
+	if !validOS[os] {
+		return fmt.Errorf("unsupported OS '%s', valid options: linux, windows, darwin", os)
+	}
+
+	// Validate architecture
+	validArch := map[string]bool{"amd64": true, "arm64": true, "arm": true, "386": true, "ppc64le": true, "s390x": true, "riscv64": true}
+	if !validArch[arch] {
+		return fmt.Errorf("unsupported architecture '%s', valid options: amd64, arm64, arm, 386, ppc64le, s390x, riscv64", arch)
+	}
+
+	return nil
 }
 
 var imageNamePattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._\-/:]*$`)
@@ -166,14 +202,16 @@ func sanitizeImageName(imageName string) (string, error) {
 
 // getCacheFilename generates a safe filename for caching
 // This must match the filename format used by createOutputTar in image.go
-func (s *Server) getCacheFilename(imageName string) string {
+func (s *Server) getCacheFilename(imageName string, platform string) string {
 	ref := ParseImageReference(imageName)
+	ref.Platform = ParsePlatform(platform)
 	safeImageName := strings.ReplaceAll(ref.Repository, "/", "_")
-	return fmt.Sprintf("%s_%s.tar.gz", safeImageName, ref.Tag)
+	safePlatform := strings.ReplaceAll(ref.Platform.String(), "/", "_")
+	return fmt.Sprintf("%s_%s_%s.tar.gz", safeImageName, ref.Tag, safePlatform)
 }
 
 // serveImageFile streams an image tar file to the response with Range request support
-func (s *Server) serveImageFile(w http.ResponseWriter, r *http.Request, imagePath, imageName string) {
+func (s *Server) serveImageFile(w http.ResponseWriter, r *http.Request, imagePath, imageName string, platform string) {
 	file, err := os.Open(imagePath)
 	if err != nil {
 		log.Printf("Failed to open image file: %v\n", err)
@@ -196,7 +234,7 @@ func (s *Server) serveImageFile(w http.ResponseWriter, r *http.Request, imagePat
 		return
 	}
 
-	filename := s.getCacheFilename(imageName)
+	filename := s.getCacheFilename(imageName, platform)
 
 	w.Header().Set(contentTypeHeader, "application/gzip")
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
