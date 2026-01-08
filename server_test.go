@@ -300,38 +300,44 @@ func TestImageHandler_InvalidPlatform(t *testing.T) {
 	}
 }
 
-func TestValidatePlatform(t *testing.T) {
+func TestSanitizePlatform(t *testing.T) {
 	tests := []struct {
 		name      string
 		platform  string
+		expected  string
 		expectErr bool
 	}{
-		{"linux/amd64", "linux/amd64", false},
-		{"linux/arm64", "linux/arm64", false},
-		{"linux/arm", "linux/arm", false},
-		{"linux/386", "linux/386", false},
-		{"linux/ppc64le", "linux/ppc64le", false},
-		{"linux/s390x", "linux/s390x", false},
-		{"linux/riscv64", "linux/riscv64", false},
-		{"windows/amd64", "windows/amd64", false},
-		{"darwin/amd64", "darwin/amd64", false},
-		{"darwin/arm64", "darwin/arm64", false},
-		{"invalid format", "invalid", true},
-		{"unsupported OS", "bsd/amd64", true},
-		{"unsupported arch", "linux/mips", true},
-		{"too many parts", "linux/amd64/v2", true},
-		{"empty OS", "/amd64", true},
-		{"empty arch", "linux/", true},
+		{"linux/amd64", "linux/amd64", "linux/amd64", false},
+		{"linux/arm64", "linux/arm64", "linux/arm64", false},
+		{"linux/arm", "linux/arm", "linux/arm", false},
+		{"linux/386", "linux/386", "linux/386", false},
+		{"linux/ppc64le", "linux/ppc64le", "linux/ppc64le", false},
+		{"linux/s390x", "linux/s390x", "linux/s390x", false},
+		{"linux/riscv64", "linux/riscv64", "linux/riscv64", false},
+		{"windows/amd64", "windows/amd64", "windows/amd64", false},
+		{"darwin/amd64", "darwin/amd64", "darwin/amd64", false},
+		{"darwin/arm64", "darwin/arm64", "darwin/arm64", false},
+		{"invalid format", "invalid", "", true},
+		{"unsupported OS", "bsd/amd64", "", true},
+		{"unsupported arch", "linux/mips", "", true},
+		{"too many parts", "linux/amd64/v2", "", true},
+		{"empty OS", "/amd64", "", true},
+		{"empty arch", "linux/", "", true},
+		{"path traversal attempt", "../../../etc/passwd", "", true},
+		{"path traversal in os", "../linux/amd64", "", true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validatePlatform(tt.platform)
+			result, err := sanitizePlatform(tt.platform)
 			if tt.expectErr && err == nil {
 				t.Errorf("expected error for platform '%s', got nil", tt.platform)
 			}
 			if !tt.expectErr && err != nil {
 				t.Errorf("unexpected error for platform '%s': %v", tt.platform, err)
+			}
+			if !tt.expectErr && result != tt.expected {
+				t.Errorf("expected sanitized platform '%s', got '%s'", tt.expected, result)
 			}
 		})
 	}

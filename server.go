@@ -120,10 +120,13 @@ func (s *Server) imageHandler(w http.ResponseWriter, r *http.Request) {
 	// URL-encoded slashes (%2F) are automatically decoded by Go's URL parser
 	platform := r.URL.Query().Get("platform")
 	if platform != "" {
-		if err := validatePlatform(platform); err != nil {
+		// Sanitize and validate platform - returns a safe reconstructed value
+		sanitized, err := sanitizePlatform(platform)
+		if err != nil {
 			writeJSONError(w, fmt.Sprintf("invalid platform: %v", err), http.StatusBadRequest)
 			return
 		}
+		platform = sanitized
 	} else {
 		// Normalize empty platform to default to ensure consistent cache keys
 		// This prevents duplicate downloads when one request omits platform
@@ -157,28 +160,31 @@ func (s *Server) imageHandler(w http.ResponseWriter, r *http.Request) {
 	s.serveImageFile(w, r, imagePath, imageName, platform)
 }
 
-// validatePlatform validates the platform string format
-func validatePlatform(platform string) error {
+// validatePlatform validates the platform string format and returns a sanitized version
+// This prevents path traversal attacks by reconstructing the platform from validated components
+func sanitizePlatform(platform string) (string, error) {
 	parts := strings.Split(platform, "/")
 	if len(parts) != 2 {
-		return fmt.Errorf("platform must be in format 'os/architecture' (e.g., 'linux/amd64')")
+		return "", fmt.Errorf("platform must be in format 'os/architecture' (e.g., 'linux/amd64')")
 	}
-	os := parts[0]
+	osName := parts[0]
 	arch := parts[1]
 
-	// Validate OS
+	// Validate OS against whitelist
 	validOS := map[string]bool{"linux": true, "windows": true, "darwin": true}
-	if !validOS[os] {
-		return fmt.Errorf("unsupported OS '%s', valid options: linux, windows, darwin", os)
+	if !validOS[osName] {
+		return "", fmt.Errorf("unsupported OS '%s', valid options: linux, windows, darwin", osName)
 	}
 
-	// Validate architecture
+	// Validate architecture against whitelist
 	validArch := map[string]bool{"amd64": true, "arm64": true, "arm": true, "386": true, "ppc64le": true, "s390x": true, "riscv64": true}
 	if !validArch[arch] {
-		return fmt.Errorf("unsupported architecture '%s', valid options: amd64, arm64, arm, 386, ppc64le, s390x, riscv64", arch)
+		return "", fmt.Errorf("unsupported architecture '%s', valid options: amd64, arm64, arm, 386, ppc64le, s390x, riscv64", arch)
 	}
 
-	return nil
+	// Return reconstructed platform from validated components (not user input)
+	// This ensures path safety by only using known-good values
+	return osName + "/" + arch, nil
 }
 
 var imageNamePattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._\-/:]*$`)
