@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 )
 
 func printBanner() {
@@ -18,30 +19,50 @@ func printBanner() {
 }
 
 func main() {
-	configPath := flag.String("config", "config.yaml", "Path to YAML configuration file")
+	configPath := flag.String("config", "", "Path to YAML configuration file")
 	flag.Parse()
 
 	printBanner()
 
 	var addr string
 	var cacheDir string
+	var authConfig *AuthConfig
 
-	if *configPath != "" {
-		config, err := LoadConfig(*configPath)
+	// Try to load config from specified path, or fall back to config.yaml if it exists
+	configFile := *configPath
+	if configFile == "" {
+		// Check if default config.yaml exists
+		if _, err := os.Stat("config.yaml"); err == nil {
+			configFile = "config.yaml"
+		}
+	}
+
+	if configFile != "" {
+		config, err := LoadConfig(configFile)
 		if err != nil {
 			log.Fatalf("Failed to load config: %v", err)
 		}
 
 		addr = fmt.Sprintf(":%d", config.Port)
 		cacheDir = config.CacheDir
+		authConfig = config.Auth
 		config.ApplyCredentials()
 
-		log.Printf("Loaded configuration from %s", *configPath)
+		log.Printf("Loaded configuration from %s", configFile)
+		if authConfig != nil {
+			log.Printf(
+				"Auth config: enabled=%v, basic_auth_configured=%v, api_keys_configured=%d",
+				authConfig.Enabled,
+				authConfig.Username != "",
+				len(authConfig.APIKeys),
+			)
+		}
 	} else {
 		addr = ":8080"
 		cacheDir = ""
+		log.Println("No config file found, using defaults (port: 8080)")
 	}
 
-	server := NewServer(addr, cacheDir)
+	server := NewServerWithConfig(addr, cacheDir, authConfig)
 	log.Fatal(server.Run())
 }

@@ -161,8 +161,18 @@ func createOutputTar(ref ImageReference, tempDir, outputDir string) (string, err
 		return "", err
 	}
 
-	safeImageName := strings.ReplaceAll(ref.Repository, "/", "_")
-	outputPath := filepath.Join(outputDir, fmt.Sprintf("%s_%s.tar.gz", safeImageName, ref.Tag))
+	safeImageName := sanitizePathComponent(ref.Repository)
+	safeTag := sanitizePathComponent(ref.Tag)
+	safePlatform := sanitizePathComponent(ref.Platform.String())
+	filename := fmt.Sprintf("%s_%s_%s.tar.gz", safeImageName, safeTag, safePlatform)
+	outputPath := filepath.Join(outputDir, filename)
+
+	// Validate that the output path stays within the output directory
+	cleanOutputDir := filepath.Clean(outputDir)
+	cleanOutputPath := filepath.Clean(outputPath)
+	if !strings.HasPrefix(cleanOutputPath, cleanOutputDir+string(filepath.Separator)) && cleanOutputPath != cleanOutputDir {
+		return "", fmt.Errorf("invalid path: potential path traversal detected")
+	}
 
 	log.Println("Creating tar archive...")
 	if err := createTar(tempDir, outputPath); err != nil {
@@ -174,8 +184,10 @@ func createOutputTar(ref ImageReference, tempDir, outputDir string) (string, err
 }
 
 // DownloadImage downloads a Docker image and saves it as a tar file
-func DownloadImage(imageRef string, outputDir string) (string, error) {
+// platform should be in format "os/architecture" (e.g., "linux/amd64", "linux/arm64")
+func DownloadImage(imageRef string, outputDir string, platform string) (string, error) {
 	ref := ParseImageReference(imageRef)
+	ref.Platform = ParsePlatform(platform)
 
 	client, err := authenticateClient(ref)
 	if err != nil {
