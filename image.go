@@ -161,9 +161,9 @@ func createOutputTar(ref ImageReference, tempDir, outputDir string) (string, err
 		return "", err
 	}
 
-	safeImageName := sanitizeForPath(ref.Repository)
-	safeTag := sanitizeForPath(ref.Tag)
-	safePlatform := sanitizeForPath(ref.Platform.String())
+	safeImageName := sanitizePathComponent(ref.Repository)
+	safeTag := sanitizePathComponent(ref.Tag)
+	safePlatform := sanitizePathComponent(ref.Platform.String())
 	filename := fmt.Sprintf("%s_%s_%s.tar.gz", safeImageName, safeTag, safePlatform)
 	outputPath := filepath.Join(outputDir, filename)
 
@@ -181,18 +181,6 @@ func createOutputTar(ref ImageReference, tempDir, outputDir string) (string, err
 
 	log.Printf("Image saved to: %s\n", outputPath)
 	return outputPath, nil
-}
-
-// sanitizeForPath removes dangerous characters from a string to make it safe for use in file paths
-func sanitizeForPath(s string) string {
-	// Replace path separators with underscores
-	s = strings.ReplaceAll(s, "/", "_")
-	s = strings.ReplaceAll(s, "\\", "_")
-	// Remove path traversal sequences
-	s = strings.ReplaceAll(s, "..", "")
-	// Remove leading dots
-	s = strings.TrimLeft(s, ".")
-	return s
 }
 
 // DownloadImage downloads a Docker image and saves it as a tar file

@@ -247,19 +247,6 @@ func (s *Server) getCacheFilename(imageName string, platform string) string {
 	return fmt.Sprintf("%s_%s_%s.tar.gz", safeImageName, safeTag, safePlatform)
 }
 
-// sanitizePathComponent removes dangerous characters from a path component
-// to prevent path traversal attacks
-func sanitizePathComponent(s string) string {
-	// Replace path separators with underscores
-	s = strings.ReplaceAll(s, "/", "_")
-	s = strings.ReplaceAll(s, "\\", "_")
-	// Remove path traversal sequences
-	s = strings.ReplaceAll(s, "..", "")
-	// Remove any remaining dots at the start (hidden files)
-	s = strings.TrimLeft(s, ".")
-	return s
-}
-
 // validatePathContainment ensures the final path stays within the base directory
 func validatePathContainment(basePath, fullPath string) error {
 	// Clean both paths for comparison
