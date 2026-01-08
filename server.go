@@ -25,10 +25,16 @@ type Server struct {
 	addr          string
 	cacheDir      string
 	downloadGroup singleflight.Group
+	auth          *AuthMiddleware
 }
 
 // NewServer creates a new server instance with a cache directory
 func NewServer(addr string, cacheDir string) *Server {
+	return NewServerWithConfig(addr, cacheDir, nil)
+}
+
+// NewServerWithConfig creates a new server instance with optional auth configuration
+func NewServerWithConfig(addr string, cacheDir string, authConfig *AuthConfig) *Server {
 	if cacheDir == "" {
 		tmpDir, err := os.MkdirTemp("", "docker-image-cache-*")
 		if err != nil {
@@ -39,12 +45,16 @@ func NewServer(addr string, cacheDir string) *Server {
 		log.Fatalf("failed to create cache directory: %v", err)
 	}
 
-	return NewServerWithCache(addr, cacheDir)
+	return &Server{
+		addr:     addr,
+		cacheDir: cacheDir,
+		auth:     NewAuthMiddleware(authConfig),
+	}
 }
 
 // NewServerWithCache creates a new server instance with a custom cache directory
 func NewServerWithCache(addr, cacheDir string) *Server {
-	return &Server{addr: addr, cacheDir: cacheDir}
+	return &Server{addr: addr, cacheDir: cacheDir, auth: NewAuthMiddleware(nil)}
 }
 
 // Run starts the HTTP server
@@ -54,13 +64,21 @@ func (s *Server) Run() error {
 	}
 
 	mux := http.NewServeMux()
+
+	// Public endpoints (no auth required)
 	mux.HandleFunc("GET /{$}", s.homeHandler)
 	mux.HandleFunc("GET /health", s.healthHandler)
-	mux.HandleFunc("GET /image", s.imageHandler)
 	mux.HandleFunc("GET /logo.png", s.logoHandler)
 	mux.Handle("GET /metrics", promhttp.Handler())
 
-	log.Printf("Starting server on %s (cache: %s)\n", s.addr, s.cacheDir)
+	// Protected endpoints (auth required when enabled)
+	mux.HandleFunc("GET /image", s.auth.WrapFunc(s.imageHandler))
+
+	if s.auth.IsEnabled() {
+		log.Printf("Starting server on %s (cache: %s, auth: enabled)\n", s.addr, s.cacheDir)
+	} else {
+		log.Printf("Starting server on %s (cache: %s)\n", s.addr, s.cacheDir)
+	}
 	return http.ListenAndServe(s.addr, mux)
 }
 

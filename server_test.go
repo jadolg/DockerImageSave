@@ -462,4 +462,232 @@ func TestValidatePathContainment(t *testing.T) {
 	}
 }
 
+func TestNewServerWithConfig_Auth(t *testing.T) {
+	authConfig := &AuthConfig{
+		Enabled:  true,
+		Username: "admin",
+		Password: "secret",
+	}
+
+	tempDir, err := os.MkdirTemp("", "server-auth-test-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	server := NewServerWithConfig(":8080", tempDir, authConfig)
+
+	if server.auth == nil {
+		t.Fatal("expected auth middleware to be set")
+	}
+
+	if !server.auth.IsEnabled() {
+		t.Error("expected auth to be enabled")
+	}
+}
+
+func TestNewServerWithConfig_NoAuth(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "server-auth-test-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	server := NewServerWithConfig(":8080", tempDir, nil)
+
+	if server.auth == nil {
+		t.Fatal("expected auth middleware to exist even when nil config")
+	}
+
+	if server.auth.IsEnabled() {
+		t.Error("expected auth to be disabled when config is nil")
+	}
+}
+
+func TestImageHandler_WithAuth_Unauthorized(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "server-auth-test-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	authConfig := &AuthConfig{
+		Enabled:  true,
+		Username: "admin",
+		Password: "secret",
+	}
+	server := NewServerWithConfig(":8080", tempDir, authConfig)
+
+	// Wrap imageHandler with auth
+	handler := server.auth.WrapFunc(server.imageHandler)
+
+	req := httptest.NewRequest(http.MethodGet, "/image?name=alpine:latest", nil)
+	w := httptest.NewRecorder()
+
+	handler(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected status 401, got %d", w.Code)
+	}
+
+	if w.Header().Get("WWW-Authenticate") == "" {
+		t.Error("expected WWW-Authenticate header")
+	}
+}
+
+func TestImageHandler_WithAuth_BasicAuth(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	tempDir, err := os.MkdirTemp("", "server-auth-test-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	authConfig := &AuthConfig{
+		Enabled:  true,
+		Username: "admin",
+		Password: "secret",
+	}
+	server := NewServerWithConfig(":8080", tempDir, authConfig)
+
+	handler := server.auth.WrapFunc(server.imageHandler)
+
+	req := httptest.NewRequest(http.MethodGet, "/image?name=alpine:latest", nil)
+	req.SetBasicAuth("admin", "secret")
+	w := httptest.NewRecorder()
+
+	handler(w, req)
+
+	// With valid auth, should proceed (might get 200 or other status depending on download)
+	if w.Code == http.StatusUnauthorized {
+		t.Error("expected authenticated request to not return 401")
+	}
+}
+
+func TestImageHandler_WithAuth_APIKey(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "server-auth-test-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	authConfig := &AuthConfig{
+		Enabled: true,
+		APIKeys: []string{"test-api-key-123"},
+	}
+	server := NewServerWithConfig(":8080", tempDir, authConfig)
+
+	handler := server.auth.WrapFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("authenticated"))
+	})
+
+	tests := []struct {
+		name           string
+		setupRequest   func(*http.Request)
+		expectedStatus int
+	}{
+		{
+			name: "valid API key in header",
+			setupRequest: func(r *http.Request) {
+				r.Header.Set("X-API-Key", "test-api-key-123")
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name: "invalid API key in header",
+			setupRequest: func(r *http.Request) {
+				r.Header.Set("X-API-Key", "wrong-key")
+			},
+			expectedStatus: http.StatusUnauthorized,
+		},
+		{
+			name:           "no authentication",
+			setupRequest:   func(r *http.Request) {},
+			expectedStatus: http.StatusUnauthorized,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/test", nil)
+			tt.setupRequest(req)
+			w := httptest.NewRecorder()
+
+			handler(w, req)
+
+			if w.Code != tt.expectedStatus {
+				t.Errorf("expected status %d, got %d", tt.expectedStatus, w.Code)
+			}
+		})
+	}
+}
+
+func TestImageHandler_WithAuth_APIKeyQueryParam(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "server-auth-test-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	authConfig := &AuthConfig{
+		Enabled: true,
+		APIKeys: []string{"query-key-456"},
+	}
+	server := NewServerWithConfig(":8080", tempDir, authConfig)
+
+	handler := server.auth.WrapFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	// Valid API key in query parameter
+	req := httptest.NewRequest(http.MethodGet, "/test?api_key=query-key-456", nil)
+	w := httptest.NewRecorder()
+
+	handler(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200 with valid API key in query, got %d", w.Code)
+	}
+
+	// Invalid API key in query parameter
+	req = httptest.NewRequest(http.MethodGet, "/test?api_key=wrong-key", nil)
+	w = httptest.NewRecorder()
+
+	handler(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected status 401 with invalid API key in query, got %d", w.Code)
+	}
+}
+
+func TestHealthHandler_NoAuth(t *testing.T) {
+	// Health endpoint should be accessible without auth
+	tempDir, err := os.MkdirTemp("", "server-auth-test-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	authConfig := &AuthConfig{
+		Enabled:  true,
+		Username: "admin",
+		Password: "secret",
+	}
+	server := NewServerWithConfig(":8080", tempDir, authConfig)
+
+	// healthHandler is NOT wrapped with auth
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	w := httptest.NewRecorder()
+
+	server.healthHandler(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected health endpoint to return 200 without auth, got %d", w.Code)
+	}
+}
+
 var _ = fmt.Sprintf
