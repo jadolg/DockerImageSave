@@ -536,10 +536,6 @@ func TestImageHandler_WithAuth_Unauthorized(t *testing.T) {
 }
 
 func TestImageHandler_WithAuth_BasicAuth(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping integration test")
-	}
-
 	tempDir, err := os.MkdirTemp("", "server-auth-test-*")
 	if err != nil {
 		t.Fatal(err)
@@ -553,17 +549,35 @@ func TestImageHandler_WithAuth_BasicAuth(t *testing.T) {
 	}
 	server := NewServerWithConfig(":8080", tempDir, authConfig)
 
-	handler := server.auth.WrapFunc(server.imageHandler)
+	handler := server.auth.WrapFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
 
-	req := httptest.NewRequest(http.MethodGet, "/image?name=alpine:latest", nil)
-	req.SetBasicAuth("admin", "secret")
-	w := httptest.NewRecorder()
+	tests := []struct {
+		name           string
+		username       string
+		password       string
+		expectedStatus int
+	}{
+		{name: "valid credentials", username: "admin", password: "secret", expectedStatus: http.StatusOK},
+		{name: "invalid password", username: "admin", password: "wrong", expectedStatus: http.StatusUnauthorized},
+		{name: "missing credentials", username: "", password: "", expectedStatus: http.StatusUnauthorized},
+	}
 
-	handler(w, req)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/test", nil)
+			if tt.username != "" || tt.password != "" {
+				req.SetBasicAuth(tt.username, tt.password)
+			}
+			w := httptest.NewRecorder()
 
-	// With valid auth, should proceed (might get 200 or other status depending on download)
-	if w.Code == http.StatusUnauthorized {
-		t.Error("expected authenticated request to not return 401")
+			handler(w, req)
+
+			if w.Code != tt.expectedStatus {
+				t.Errorf("expected status %d, got %d", tt.expectedStatus, w.Code)
+			}
+		})
 	}
 }
 

@@ -185,7 +185,7 @@ func (s *Server) imageHandler(w http.ResponseWriter, r *http.Request) {
 	s.serveImageFile(w, r, imagePath, imageName, platform)
 }
 
-// validatePlatform validates the platform string format and returns a sanitized version
+// sanitizePlatform validates the platform string format and returns a sanitized version
 // This prevents path traversal attacks by reconstructing the platform from validated components
 func sanitizePlatform(platform string) (string, error) {
 	parts := strings.Split(platform, "/")
