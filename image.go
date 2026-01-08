@@ -161,9 +161,18 @@ func createOutputTar(ref ImageReference, tempDir, outputDir string) (string, err
 		return "", err
 	}
 
-	safeImageName := strings.ReplaceAll(ref.Repository, "/", "_")
-	safePlatform := strings.ReplaceAll(ref.Platform.String(), "/", "_")
-	outputPath := filepath.Join(outputDir, fmt.Sprintf("%s_%s_%s.tar.gz", safeImageName, ref.Tag, safePlatform))
+	safeImageName := sanitizeForPath(ref.Repository)
+	safeTag := sanitizeForPath(ref.Tag)
+	safePlatform := sanitizeForPath(ref.Platform.String())
+	filename := fmt.Sprintf("%s_%s_%s.tar.gz", safeImageName, safeTag, safePlatform)
+	outputPath := filepath.Join(outputDir, filename)
+
+	// Validate that the output path stays within the output directory
+	cleanOutputDir := filepath.Clean(outputDir)
+	cleanOutputPath := filepath.Clean(outputPath)
+	if !strings.HasPrefix(cleanOutputPath, cleanOutputDir+string(filepath.Separator)) && cleanOutputPath != cleanOutputDir {
+		return "", fmt.Errorf("invalid path: potential path traversal detected")
+	}
 
 	log.Println("Creating tar archive...")
 	if err := createTar(tempDir, outputPath); err != nil {
@@ -172,6 +181,18 @@ func createOutputTar(ref ImageReference, tempDir, outputDir string) (string, err
 
 	log.Printf("Image saved to: %s\n", outputPath)
 	return outputPath, nil
+}
+
+// sanitizeForPath removes dangerous characters from a string to make it safe for use in file paths
+func sanitizeForPath(s string) string {
+	// Replace path separators with underscores
+	s = strings.ReplaceAll(s, "/", "_")
+	s = strings.ReplaceAll(s, "\\", "_")
+	// Remove path traversal sequences
+	s = strings.ReplaceAll(s, "..", "")
+	// Remove leading dots
+	s = strings.TrimLeft(s, ".")
+	return s
 }
 
 // DownloadImage downloads a Docker image and saves it as a tar file
