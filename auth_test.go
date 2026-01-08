@@ -9,8 +9,8 @@ import (
 func TestNewAuthMiddleware(t *testing.T) {
 	config := &AuthConfig{
 		Enabled:  true,
-		Username: "admin",
-		Password: "secret",
+		Username: "test-user",
+		Password: "test-pass",
 	}
 
 	auth := NewAuthMiddleware(config)
@@ -58,8 +58,8 @@ func TestAuthMiddleware_IsEnabled(t *testing.T) {
 func TestAuthMiddleware_BasicAuth(t *testing.T) {
 	config := &AuthConfig{
 		Enabled:  true,
-		Username: "admin",
-		Password: "secret123",
+		Username: "test-user",
+		Password: "test-pass-123",
 	}
 	auth := NewAuthMiddleware(config)
 
@@ -71,19 +71,19 @@ func TestAuthMiddleware_BasicAuth(t *testing.T) {
 	}{
 		{
 			name:           "valid credentials",
-			username:       "admin",
-			password:       "secret123",
+			username:       "test-user",
+			password:       "test-pass-123",
 			expectedStatus: http.StatusOK,
 		},
 		{
 			name:           "invalid username",
 			username:       "wronguser",
-			password:       "secret123",
+			password:       "test-pass-123",
 			expectedStatus: http.StatusUnauthorized,
 		},
 		{
 			name:           "invalid password",
-			username:       "admin",
+			username:       "test-user",
 			password:       "wrongpassword",
 			expectedStatus: http.StatusUnauthorized,
 		},
@@ -126,7 +126,7 @@ func TestAuthMiddleware_BasicAuth(t *testing.T) {
 func TestAuthMiddleware_APIKey_Header(t *testing.T) {
 	config := &AuthConfig{
 		Enabled: true,
-		APIKeys: []string{"valid-key-123", "another-valid-key"},
+		APIKeys: []string{"key-0001", "key-0002"},
 	}
 	auth := NewAuthMiddleware(config)
 
@@ -137,12 +137,12 @@ func TestAuthMiddleware_APIKey_Header(t *testing.T) {
 	}{
 		{
 			name:           "valid API key",
-			apiKey:         "valid-key-123",
+			apiKey:         "key-0001",
 			expectedStatus: http.StatusOK,
 		},
 		{
 			name:           "another valid API key",
-			apiKey:         "another-valid-key",
+			apiKey:         "key-0002",
 			expectedStatus: http.StatusOK,
 		},
 		{
@@ -181,7 +181,7 @@ func TestAuthMiddleware_APIKey_Header(t *testing.T) {
 func TestAuthMiddleware_APIKey_QueryParam(t *testing.T) {
 	config := &AuthConfig{
 		Enabled: true,
-		APIKeys: []string{"query-key-456"},
+		APIKeys: []string{"key-query-0003"},
 	}
 	auth := NewAuthMiddleware(config)
 
@@ -192,7 +192,7 @@ func TestAuthMiddleware_APIKey_QueryParam(t *testing.T) {
 	}{
 		{
 			name:           "valid API key in query",
-			queryKey:       "query-key-456",
+			queryKey:       "key-query-0003",
 			expectedStatus: http.StatusOK,
 		},
 		{
@@ -228,8 +228,8 @@ func TestAuthMiddleware_Disabled(t *testing.T) {
 	// When auth is disabled, requests should pass through
 	config := &AuthConfig{
 		Enabled:  false,
-		Username: "admin",
-		Password: "secret",
+		Username: "test-user",
+		Password: "test-pass",
 	}
 	auth := NewAuthMiddleware(config)
 
@@ -269,8 +269,8 @@ func TestAuthMiddleware_NilConfig(t *testing.T) {
 func TestAuthMiddleware_Wrap(t *testing.T) {
 	config := &AuthConfig{
 		Enabled:  true,
-		Username: "admin",
-		Password: "secret",
+		Username: "test-user",
+		Password: "test-pass",
 	}
 	auth := NewAuthMiddleware(config)
 
@@ -284,7 +284,7 @@ func TestAuthMiddleware_Wrap(t *testing.T) {
 
 	// Test with valid credentials
 	req := httptest.NewRequest("GET", "/test", nil)
-	req.SetBasicAuth("admin", "secret")
+	req.SetBasicAuth("test-user", "test-pass")
 	rec := httptest.NewRecorder()
 
 	wrappedHandler.ServeHTTP(rec, req)
@@ -308,9 +308,9 @@ func TestAuthMiddleware_CombinedAuth(t *testing.T) {
 	// Test with both basic auth and API keys configured
 	config := &AuthConfig{
 		Enabled:  true,
-		Username: "admin",
-		Password: "secret",
-		APIKeys:  []string{"api-key-123"},
+		Username: "test-user",
+		Password: "test-pass",
+		APIKeys:  []string{"key-0003"},
 	}
 	auth := NewAuthMiddleware(config)
 
@@ -326,14 +326,14 @@ func TestAuthMiddleware_CombinedAuth(t *testing.T) {
 		{
 			name: "basic auth works",
 			setupRequest: func(r *http.Request) {
-				r.SetBasicAuth("admin", "secret")
+				r.SetBasicAuth("test-user", "test-pass")
 			},
 			expectedStatus: http.StatusOK,
 		},
 		{
 			name: "API key header works",
 			setupRequest: func(r *http.Request) {
-				r.Header.Set("X-API-Key", "api-key-123")
+				r.Header.Set("X-API-Key", "key-0003")
 			},
 			expectedStatus: http.StatusOK,
 		},
@@ -367,10 +367,10 @@ func TestSecureCompare(t *testing.T) {
 		b        string
 		expected bool
 	}{
-		{"password", "password", true},
-		{"password", "Password", false},
-		{"password", "passwor", false},
-		{"password", "passwordx", false},
+		{"alpha", "alpha", true},
+		{"alpha", "Alpha", false},
+		{"alpha", "alph", false},
+		{"alpha", "alphax", false},
 		{"", "", true},
 		{"a", "", false},
 		{"", "a", false},
@@ -388,17 +388,17 @@ func TestSecureCompare(t *testing.T) {
 func TestValidateAPIKey(t *testing.T) {
 	auth := NewAuthMiddleware(&AuthConfig{
 		Enabled: true,
-		APIKeys: []string{"key1", "key2", "key3"},
+		APIKeys: []string{"key-1", "key-2", "key-3"},
 	})
 
 	tests := []struct {
 		key      string
 		expected bool
 	}{
-		{"key1", true},
-		{"key2", true},
-		{"key3", true},
-		{"key4", false},
+		{"key-1", true},
+		{"key-2", true},
+		{"key-3", true},
+		{"key-4", false},
 		{"", false},
 		{"KEY1", false}, // case sensitive
 	}
@@ -415,8 +415,8 @@ func TestValidateAPIKey(t *testing.T) {
 func TestValidateBasicAuth(t *testing.T) {
 	auth := NewAuthMiddleware(&AuthConfig{
 		Enabled:  true,
-		Username: "admin",
-		Password: "secret123",
+		Username: "test-user",
+		Password: "test-pass-123",
 	})
 
 	tests := []struct {
@@ -424,13 +424,13 @@ func TestValidateBasicAuth(t *testing.T) {
 		password string
 		expected bool
 	}{
-		{"admin", "secret123", true},
-		{"admin", "wrong", false},
-		{"wrong", "secret123", false},
-		{"", "secret123", false},
-		{"admin", "", false},
+		{"test-user", "test-pass-123", true},
+		{"test-user", "wrong", false},
+		{"wrong", "test-pass-123", false},
+		{"", "test-pass-123", false},
+		{"test-user", "", false},
 		{"", "", false},
-		{"ADMIN", "secret123", false}, // case sensitive
+		{"TEST-USER", "test-pass-123", false}, // case sensitive
 	}
 
 	for _, tt := range tests {
@@ -447,11 +447,11 @@ func TestValidateBasicAuth_NoUsernameConfigured(t *testing.T) {
 	auth := NewAuthMiddleware(&AuthConfig{
 		Enabled:  true,
 		Username: "",
-		Password: "secret",
-		APIKeys:  []string{"key1"}, // Only API keys configured
+		Password: "test-pass",
+		APIKeys:  []string{"key-1"}, // Only API keys configured
 	})
 
-	if auth.validateBasicAuth("anyuser", "secret") {
+	if auth.validateBasicAuth("anyuser", "test-pass") {
 		t.Error("expected basic auth to fail when no username configured")
 	}
 }
