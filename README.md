@@ -45,18 +45,29 @@ Remember to update the domain name in the Caddyfile.
 
 ### Client side
 
-#### Only get the file
+#### Download with wget
 
-`wget -c --tries=5 --waitretry=3 --content-disposition "https://dockerimagesave.akiel.dev/image?name=ubuntu:25.04"`
+- Resumable download (keeps the file):
 
-#### Direct pipe (simple)
+	```bash
+	wget -c --tries=5 --waitretry=3 --content-disposition \
+		"https://dockerimagesave.akiel.dev/image?name=ubuntu:25.04"
+	```
 
-```bash
-wget --tries=5 --waitretry=3 -q -O - "https://dockerimagesave.akiel.dev/image?name=ubuntu:25.04" | docker load
-```
+- Stream straight into Docker (no file left on disk):
 
-#### With resume support (for large images or if you want to keep the file)
+	```bash
+	wget --tries=5 --waitretry=3 -q -O - \
+		"https://dockerimagesave.akiel.dev/image?name=ubuntu:25.04" | docker load
+	```
 
-```bash
-wget -c --tries=5 --waitretry=3 --content-disposition "https://dockerimagesave.akiel.dev/image?name=ubuntu:25.04" && docker load -i ubuntu_25_04.tar
-```
+- Request a specific platform (matching `docker pull --platform`):
+
+	```bash
+	wget --tries=5 --waitretry=3 -q -O - \
+		"https://dockerimagesave.akiel.dev/image?name=ubuntu:25.04&platform=linux/amd64" | docker load
+	```
+
+Notes:
+- If auth is enabled on your instance, pass `X-API-Key` or `api_key` as configured.
+- `--content-disposition` lets wget honor the filename suggested by the server.

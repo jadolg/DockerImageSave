@@ -73,6 +73,8 @@
         .buttons {
             display: flex;
             gap: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
         }
 
         .btn {
@@ -244,8 +246,10 @@
         </div>
         <div class="buttons">
             <button type="submit" class="btn" id="downloadBtn">Download</button>
+            <button type="button" class="btn" id="directBtn">Browser download</button>
         </div>
     </form>
+    <div class="status" id="wgetSnippet"></div>
     <div class="status" id="status"></div>
     <div class="progress-bar" id="progressBar">
         <div class="progress-fill" id="progressFill"></div>
@@ -256,7 +260,9 @@
     const form = document.getElementById('downloadForm');
     const imageNameInput = document.getElementById('imageName');
     const downloadBtn = document.getElementById('downloadBtn');
+    const directBtn = document.getElementById('directBtn');
     const status = document.getElementById('status');
+    const wgetSnippet = document.getElementById('wgetSnippet');
     const progressBar = document.getElementById('progressBar');
     const progressFill = document.getElementById('progressFill');
 
@@ -435,6 +441,7 @@
         progressFill.style.width = '0%';
         progressFill.classList.add('indeterminate');
         downloadBtn.disabled = true;
+        directBtn.disabled = true;
 
         try {
             const response = await fetch(`/image?name=${encodeURIComponent(imageName)}`);
@@ -517,7 +524,28 @@
             progressBar.classList.remove('visible');
         } finally {
             downloadBtn.disabled = false;
+            directBtn.disabled = false;
         }
+    });
+
+    directBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+
+        const imageName = imageNameInput.value.trim();
+        if (!imageName) {
+            status.textContent = 'Please enter an image name';
+            status.classList.add('error');
+            return;
+        }
+
+        status.classList.remove('error');
+        status.textContent = 'Starting browser download...';
+        const url = `/image?name=${encodeURIComponent(imageName)}`;
+        window.location.href = url;
+
+        // Show wget snippet for convenience
+        const snippet = `wget --tries=5 --waitretry=3 -c --content-disposition "${window.location.origin}${url}"`;
+        wgetSnippet.textContent = snippet;
     });
 </script>
 </body>
