@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -219,7 +220,7 @@ func TestDownloadImage_PublicImage(t *testing.T) {
 	}
 	defer cleanupTempDir(t, outputDir)
 
-	imagePath, err := DownloadImage("alpine:latest", outputDir)
+	imagePath, err := DownloadImage("alpine:latest", outputDir, "")
 	if err != nil {
 		t.Fatalf("DownloadImage failed: %v", err)
 	}
@@ -248,7 +249,7 @@ func TestDownloadImage_WithAuthentication(t *testing.T) {
 	}
 	defer cleanupTempDir(t, outputDir)
 
-	imagePath, err := DownloadImage("busybox:latest", outputDir)
+	imagePath, err := DownloadImage("busybox:latest", outputDir, "")
 	if err != nil {
 		t.Fatalf("DownloadImage with auth failed: %v", err)
 	}
@@ -269,8 +270,152 @@ func TestDownloadImage_NonExistentImage(t *testing.T) {
 	}
 	defer cleanupTempDir(t, outputDir)
 
-	_, err = DownloadImage("thisimagedoesnotexist12345:nonexistenttag", outputDir)
+	_, err = DownloadImage("thisimagedoesnotexist12345:nonexistenttag", outputDir, "")
 	if err == nil {
 		t.Error("expected error for non-existent image")
+	}
+}
+
+func TestDownloadImage_WithPlatform(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	tests := []struct {
+		name     string
+		image    string
+		platform string
+	}{
+		{
+			name:     "linux/amd64",
+			image:    "alpine:latest",
+			platform: "linux/amd64",
+		},
+		{
+			name:     "linux/arm64",
+			image:    "alpine:latest",
+			platform: "linux/arm64",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			outputDir, err := os.MkdirTemp("", "test-download-platform-*")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer cleanupTempDir(t, outputDir)
+
+			imagePath, err := DownloadImage(tt.image, outputDir, tt.platform)
+			if err != nil {
+				t.Fatalf("DownloadImage with platform %s failed: %v", tt.platform, err)
+			}
+
+			if _, err := os.Stat(imagePath); os.IsNotExist(err) {
+				t.Errorf("expected image file to exist at %s", imagePath)
+			}
+
+			info, err := os.Stat(imagePath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if info.Size() == 0 {
+				t.Error("expected non-zero file size")
+			}
+
+			// Verify filename includes platform
+			platformParts := strings.Split(tt.platform, "/")
+			if len(platformParts) != 2 {
+				t.Fatalf("invalid platform format %q, expected <os>/<arch>", tt.platform)
+			}
+			expectedSuffix := "_" + platformParts[0] + "_" + platformParts[1] + ".tar.gz"
+			if !strings.HasSuffix(imagePath, expectedSuffix) {
+				t.Errorf("expected filename to end with '%s', got '%s'", expectedSuffix, imagePath)
+			}
+		})
+	}
+}
+
+func TestDownloadImage_UnsupportedPlatform(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	outputDir, err := os.MkdirTemp("", "test-download-unsupported-platform-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanupTempDir(t, outputDir)
+
+	// Try to download with a platform that doesn't exist for this image
+	_, err = DownloadImage("alpine:latest", outputDir, "windows/arm64")
+	if err == nil {
+		t.Error("expected error for unsupported platform")
+	}
+}
+
+func TestCreateOutputTar_IncludesPlatformInFilename(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "test-output-tar-platform-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanupTempDir(t, tempDir)
+
+	outputDir, err := os.MkdirTemp("", "test-output-dir-platform-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanupTempDir(t, outputDir)
+
+	// Create a minimal file structure for tar
+	if err := os.WriteFile(filepath.Join(tempDir, "test.txt"), []byte("test"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name     string
+		ref      ImageReference
+		expected string
+	}{
+		{
+			name: "linux_amd64 platform",
+			ref: ImageReference{
+				Registry:   "registry-1.docker.io",
+				Repository: "library/alpine",
+				Tag:        "latest",
+				Platform:   Platform{OS: "linux", Architecture: "amd64"},
+			},
+			expected: "library_alpine_latest_linux_amd64.tar.gz",
+		},
+		{
+			name: "linux_arm64 platform",
+			ref: ImageReference{
+				Registry:   "registry-1.docker.io",
+				Repository: "library/alpine",
+				Tag:        "3.18",
+				Platform:   Platform{OS: "linux", Architecture: "arm64"},
+			},
+			expected: "library_alpine_3.18_linux_arm64.tar.gz",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testOutputDir, err := os.MkdirTemp("", "test-output-*")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer cleanupTempDir(t, testOutputDir)
+
+			outputPath, err := createOutputTar(tt.ref, tempDir, testOutputDir)
+			if err != nil {
+				t.Fatalf("createOutputTar failed: %v", err)
+			}
+
+			expectedPath := filepath.Join(testOutputDir, tt.expected)
+			if outputPath != expectedPath {
+				t.Errorf("expected path '%s', got '%s'", expectedPath, outputPath)
+			}
+		})
 	}
 }

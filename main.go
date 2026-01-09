@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 )
 
 func printBanner() {
@@ -18,7 +19,7 @@ func printBanner() {
 }
 
 func main() {
-	configPath := flag.String("config", "config.yaml", "Path to YAML configuration file")
+	configPath := flag.String("config", "", "Path to YAML configuration file")
 	flag.Parse()
 
 	printBanner()
@@ -26,8 +27,17 @@ func main() {
 	var addr string
 	var cacheDir string
 
-	if *configPath != "" {
-		config, err := LoadConfig(*configPath)
+	// Try to load config from specified path, or fall back to config.yaml if it exists
+	configFile := *configPath
+	if configFile == "" {
+		// Check if default config.yaml exists
+		if _, err := os.Stat("config.yaml"); err == nil {
+			configFile = "config.yaml"
+		}
+	}
+
+	if configFile != "" {
+		config, err := LoadConfig(configFile)
 		if err != nil {
 			log.Fatalf("Failed to load config: %v", err)
 		}
@@ -36,10 +46,11 @@ func main() {
 		cacheDir = config.CacheDir
 		config.ApplyCredentials()
 
-		log.Printf("Loaded configuration from %s", *configPath)
+		log.Printf("Loaded configuration from %s", configFile)
 	} else {
 		addr = ":8080"
 		cacheDir = ""
+		log.Println("No config file found, using defaults (port: 8080)")
 	}
 
 	server := NewServer(addr, cacheDir)

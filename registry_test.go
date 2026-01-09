@@ -189,3 +189,110 @@ func TestRegistryClient_GetManifest_Mock(t *testing.T) {
 		t.Errorf("expected status 200, got %d", resp.StatusCode)
 	}
 }
+
+func TestParsePlatform(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected Platform
+	}{
+		{
+			name:     "linux/amd64",
+			input:    "linux/amd64",
+			expected: Platform{OS: "linux", Architecture: "amd64"},
+		},
+		{
+			name:     "linux/arm64",
+			input:    "linux/arm64",
+			expected: Platform{OS: "linux", Architecture: "arm64"},
+		},
+		{
+			name:     "windows/amd64",
+			input:    "windows/amd64",
+			expected: Platform{OS: "windows", Architecture: "amd64"},
+		},
+		{
+			name:     "empty string returns default",
+			input:    "",
+			expected: Platform{OS: "linux", Architecture: "amd64"},
+		},
+		{
+			name:     "invalid format returns default",
+			input:    "invalid",
+			expected: Platform{OS: "linux", Architecture: "amd64"},
+		},
+		{
+			name:     "too many parts returns default",
+			input:    "linux/amd64/extra",
+			expected: Platform{OS: "linux", Architecture: "amd64"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ParsePlatform(tt.input)
+			if result.OS != tt.expected.OS {
+				t.Errorf("expected OS '%s', got '%s'", tt.expected.OS, result.OS)
+			}
+			if result.Architecture != tt.expected.Architecture {
+				t.Errorf("expected Architecture '%s', got '%s'", tt.expected.Architecture, result.Architecture)
+			}
+		})
+	}
+}
+
+func TestPlatformString(t *testing.T) {
+	tests := []struct {
+		name     string
+		platform Platform
+		expected string
+	}{
+		{
+			name:     "linux/amd64",
+			platform: Platform{OS: "linux", Architecture: "amd64"},
+			expected: "linux/amd64",
+		},
+		{
+			name:     "linux/arm64",
+			platform: Platform{OS: "linux", Architecture: "arm64"},
+			expected: "linux/arm64",
+		},
+		{
+			name:     "windows/amd64",
+			platform: Platform{OS: "windows", Architecture: "amd64"},
+			expected: "windows/amd64",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.platform.String()
+			if result != tt.expected {
+				t.Errorf("expected '%s', got '%s'", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestDefaultPlatform(t *testing.T) {
+	platform := DefaultPlatform()
+
+	if platform.OS != "linux" {
+		t.Errorf("expected OS 'linux', got '%s'", platform.OS)
+	}
+	if platform.Architecture != "amd64" {
+		t.Errorf("expected Architecture 'amd64', got '%s'", platform.Architecture)
+	}
+}
+
+func TestParseImageReference_IncludesPlatform(t *testing.T) {
+	ref := ParseImageReference("alpine:latest")
+
+	// Should have default platform
+	if ref.Platform.OS != "linux" {
+		t.Errorf("expected Platform.OS 'linux', got '%s'", ref.Platform.OS)
+	}
+	if ref.Platform.Architecture != "amd64" {
+		t.Errorf("expected Platform.Architecture 'amd64', got '%s'", ref.Platform.Architecture)
+	}
+}
