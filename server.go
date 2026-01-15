@@ -203,7 +203,7 @@ func (s *Server) serveImageFile(w http.ResponseWriter, r *http.Request, imagePat
 
 	http.ServeContent(w, r, filename, fileInfo.ModTime(), file)
 
-	log.Printf("Served image: %s (%d bytes total)\n", imageName, fileInfo.Size())
+	log.Printf("Served image: %s (%s)\n", imageName, humanizeBytes(fileInfo.Size()))
 	pullsCountMetric.Inc()
 }
 
@@ -216,4 +216,19 @@ func writeJSONError(w http.ResponseWriter, message string, statusCode int) {
 		errorsTotalMetric.Inc()
 		log.Printf("Failed to write JSON error response: %v\n", err)
 	}
+}
+
+// humanizeBytes converts bytes to a human-readable format
+func humanizeBytes(bytes int64) string {
+	const unit = 1024
+	if bytes < unit {
+		return fmt.Sprintf("%d B", bytes)
+	}
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	units := []string{"KB", "MB", "GB", "TB", "PB"}
+	return fmt.Sprintf("%.2f %s", float64(bytes)/float64(div), units[exp])
 }

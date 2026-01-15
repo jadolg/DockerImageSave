@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -217,6 +218,107 @@ func TestServeImageFile_InvalidRange(t *testing.T) {
 	resp := w.Result()
 	if resp.StatusCode != http.StatusRequestedRangeNotSatisfiable {
 		t.Errorf("expected status 416, got %d", resp.StatusCode)
+	}
+}
+
+func TestHumanizeBytes(t *testing.T) {
+	tests := []struct {
+		name     string
+		bytes    int64
+		expected string
+	}{
+		{
+			name:     "zero bytes",
+			bytes:    0,
+			expected: "0 B",
+		},
+		{
+			name:     "bytes less than 1KB",
+			bytes:    512,
+			expected: "512 B",
+		},
+		{
+			name:     "exactly 1KB",
+			bytes:    1024,
+			expected: "1.00 KB",
+		},
+		{
+			name:     "kilobytes",
+			bytes:    5120,
+			expected: "5.00 KB",
+		},
+		{
+			name:     "megabytes",
+			bytes:    5242880, // 5 MB
+			expected: "5.00 MB",
+		},
+		{
+			name:     "megabytes with decimals",
+			bytes:    7654321,
+			expected: "7.30 MB",
+		},
+		{
+			name:     "gigabytes",
+			bytes:    5368709120, // 5 GB
+			expected: "5.00 GB",
+		},
+		{
+			name:     "gigabytes with decimals",
+			bytes:    1610612736, // 1.5 GB
+			expected: "1.50 GB",
+		},
+		{
+			name:     "terabytes",
+			bytes:    5497558138880, // 5 TB
+			expected: "5.00 TB",
+		},
+		{
+			name:     "petabytes",
+			bytes:    5629499534213120, // 5 PB
+			expected: "5.00 PB",
+		},
+		{
+			name:     "1023 bytes",
+			bytes:    1023,
+			expected: "1023 B",
+		},
+		{
+			name:     "1 byte",
+			bytes:    1,
+			expected: "1 B",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := humanizeBytes(tt.bytes)
+			if result != tt.expected {
+				t.Errorf("humanizeBytes(%d) = %s, expected %s", tt.bytes, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestHumanizeBytes_FormattingConsistency(t *testing.T) {
+	// Test that all results use 2 decimal places (except for bytes)
+	testCases := []int64{
+		1024,         // 1.00 KB
+		1048576,      // 1.00 MB
+		1073741824,   // 1.00 GB
+		1099511627776, // 1.00 TB
+	}
+
+	for _, bytes := range testCases {
+		result := humanizeBytes(bytes)
+		if !strings.Contains(result, ".") {
+			t.Errorf("humanizeBytes(%d) = %s, expected decimal point for formatted size", bytes, result)
+		}
+	}
+
+	// Test that byte values don't have decimal points
+	result := humanizeBytes(512)
+	if strings.Contains(result, ".") {
+		t.Errorf("humanizeBytes(512) = %s, expected no decimal point for byte values", result)
 	}
 }
 
