@@ -263,10 +263,6 @@ func (c *RegistryClient) parseManifestResponse(ref ImageReference, contentType s
 
 // doSafeRegistryRequest constructs a validated URL from registry components and executes an HTTP GET request.
 func (c *RegistryClient) doSafeRegistryRequest(registry, pathFormat string, headers map[string]string, args ...interface{}) (*http.Response, error) {
-	if err := validateRegistry(registry); err != nil {
-		return nil, fmt.Errorf("invalid registry: %w", err)
-	}
-
 	requestURL, err := buildRegistryURL(registry, pathFormat, args...)
 	if err != nil {
 		return nil, err
@@ -283,6 +279,14 @@ func (c *RegistryClient) doSafeRegistryRequest(registry, pathFormat string, head
 
 	if c.token != "" {
 		req.Header.Set("Authorization", bearerPrefix+c.token)
+	}
+
+	parsedURL, err := url.Parse(requestURL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid URL: %w", err)
+	}
+	if err := validateRegistry(parsedURL.Host); err != nil {
+		return nil, fmt.Errorf("URL host validation failed: %w", err)
 	}
 
 	return c.httpClient.Do(req)
