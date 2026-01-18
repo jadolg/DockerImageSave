@@ -155,6 +155,10 @@ func (c *RegistryClient) Authenticate(ref ImageReference) error {
 	if parsedRealm.Scheme != "https" && parsedRealm.Scheme != "http" {
 		return fmt.Errorf("invalid auth realm scheme: %s", parsedRealm.Scheme)
 	}
+	// Validate the realm host to prevent SSRF to internal/private networks
+	if err := validateRegistry(parsedRealm.Host); err != nil {
+		return fmt.Errorf("invalid auth realm host: %w", err)
+	}
 
 	tokenURL := fmt.Sprintf("%s?service=%s&scope=%s", realm, url.QueryEscape(service), url.QueryEscape(scope))
 
@@ -336,22 +340,10 @@ func (c *RegistryClient) getManifestByDigest(ref ImageReference, digest string) 
 		return nil, fmt.Errorf("invalid digest: %w", err)
 	}
 
-	manifestURL, err := buildRegistryURL(ref.Registry, "/v2/%s/manifests/%s", ref.Repository, digest)
-	if err != nil {
-		return nil, err
+	headers := map[string]string{
+		"Accept": "application/vnd.docker.distribution.manifest.v2+json, application/vnd.oci.image.manifest.v1+json",
 	}
-
-	req, err := http.NewRequest("GET", manifestURL, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json, application/vnd.oci.image.manifest.v1+json")
-	if c.token != "" {
-		req.Header.Set("Authorization", bearerPrefix+c.token)
-	}
-
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.doSafeRegistryRequest(ref.Registry, "/v2/%s/manifests/%s", headers, ref.Repository, digest)
 	if err != nil {
 		return nil, err
 	}
@@ -379,21 +371,7 @@ func (c *RegistryClient) DownloadBlob(ref ImageReference, digest, destPath strin
 		return fmt.Errorf("invalid digest: %w", err)
 	}
 
-	blobURL, err := buildRegistryURL(ref.Registry, "/v2/%s/blobs/%s", ref.Repository, digest)
-	if err != nil {
-		return err
-	}
-
-	req, err := http.NewRequest("GET", blobURL, nil)
-	if err != nil {
-		return err
-	}
-
-	if c.token != "" {
-		req.Header.Set("Authorization", bearerPrefix+c.token)
-	}
-
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.doSafeRegistryRequest(ref.Registry, "/v2/%s/blobs/%s", nil, ref.Repository, digest)
 	if err != nil {
 		return err
 	}
