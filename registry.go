@@ -261,28 +261,41 @@ func (c *RegistryClient) parseManifestResponse(ref ImageReference, contentType s
 	return &manifest, nil
 }
 
+// doSafeRegistryRequest constructs a validated URL from registry components and executes an HTTP GET request.
+func (c *RegistryClient) doSafeRegistryRequest(registry, pathFormat string, headers map[string]string, args ...interface{}) (*http.Response, error) {
+	if err := validateRegistry(registry); err != nil {
+		return nil, fmt.Errorf("invalid registry: %w", err)
+	}
+
+	requestURL, err := buildRegistryURL(registry, pathFormat, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", requestURL, nil) // #nosec G107
+	if err != nil {
+		return nil, err
+	}
+
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
+
+	if c.token != "" {
+		req.Header.Set("Authorization", bearerPrefix+c.token)
+	}
+
+	return c.httpClient.Do(req)
+}
+
 // fetchManifestResponse fetches the raw manifest response from the registry.
 func (c *RegistryClient) fetchManifestResponse(ref ImageReference, reference string) (*http.Response, error) {
 	if err := ValidateImageReference(ref); err != nil {
 		return nil, fmt.Errorf("invalid image reference: %w", err)
 	}
 
-	manifestURL, err := buildRegistryURL(ref.Registry, "/v2/%s/manifests/%s", ref.Repository, reference)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", manifestURL, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Accept", manifestAcceptHeader)
-	if c.token != "" {
-		req.Header.Set("Authorization", bearerPrefix+c.token)
-	}
-
-	return c.httpClient.Do(req)
+	headers := map[string]string{"Accept": manifestAcceptHeader}
+	return c.doSafeRegistryRequest(ref.Registry, "/v2/%s/manifests/%s", headers, ref.Repository, reference)
 }
 
 // getManifest retrieves the image manifest
