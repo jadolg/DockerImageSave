@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -138,30 +137,6 @@ func (s *Server) imageHandler(w http.ResponseWriter, r *http.Request) {
 	imagePath := result.(string)
 
 	s.serveImageFile(w, r, imagePath, imageName)
-}
-
-var imageNamePattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._\-/:]*$`)
-
-func sanitizeImageName(imageName string) (string, error) {
-	imageName = strings.TrimSpace(imageName)
-
-	if imageName == "" {
-		return "", fmt.Errorf("image name cannot be empty")
-	}
-
-	if len(imageName) > 256 {
-		return "", fmt.Errorf("image name too long (max 256 characters)")
-	}
-
-	if strings.Contains(imageName, "..") {
-		return "", fmt.Errorf("invalid characters in image name")
-	}
-
-	if !imageNamePattern.MatchString(imageName) {
-		return "", fmt.Errorf("image name contains invalid characters")
-	}
-
-	return imageName, nil
 }
 
 // getCacheFilename generates a safe filename for caching

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -110,6 +111,10 @@ func NewRegistryClient() *RegistryClient {
 
 // Authenticate obtains a token for the given image
 func (c *RegistryClient) Authenticate(ref ImageReference) error {
+	if err := ValidateImageReference(ref); err != nil {
+		return fmt.Errorf("invalid image reference: %w", err)
+	}
+
 	creds, hasCredentials := GetCredentials(ref.Registry)
 	if hasCredentials {
 		c.username = creds.Username
@@ -117,8 +122,11 @@ func (c *RegistryClient) Authenticate(ref ImageReference) error {
 		c.username = "anonymous"
 	}
 
-	url := fmt.Sprintf("https://%s/v2/", ref.Registry)
-	resp, err := c.httpClient.Get(url)
+	registryURL, err := buildRegistryURL(ref.Registry, "/v2/")
+	if err != nil {
+		return err
+	}
+	resp, err := c.httpClient.Get(registryURL)
 	if err != nil {
 		return err
 	}
@@ -139,7 +147,16 @@ func (c *RegistryClient) Authenticate(ref ImageReference) error {
 
 	realm, service, scope := parseAuthHeader(authHeader, ref.Repository)
 
-	tokenURL := fmt.Sprintf("%s?service=%s&scope=%s", realm, service, scope)
+	// Validate the realm URL to prevent SSRF
+	parsedRealm, err := url.Parse(realm)
+	if err != nil {
+		return fmt.Errorf("invalid auth realm URL: %w", err)
+	}
+	if parsedRealm.Scheme != "https" && parsedRealm.Scheme != "http" {
+		return fmt.Errorf("invalid auth realm scheme: %s", parsedRealm.Scheme)
+	}
+
+	tokenURL := fmt.Sprintf("%s?service=%s&scope=%s", realm, url.QueryEscape(service), url.QueryEscape(scope))
 
 	req, err := http.NewRequest("GET", tokenURL, nil)
 	if err != nil {
@@ -261,9 +278,16 @@ func (c *RegistryClient) fetchManifestResponse(url string) (*http.Response, erro
 
 // getManifest retrieves the image manifest
 func (c *RegistryClient) getManifest(ref ImageReference) (*ManifestV2, error) {
-	url := fmt.Sprintf("https://%s/v2/%s/manifests/%s", ref.Registry, ref.Repository, ref.Tag)
+	if err := ValidateImageReference(ref); err != nil {
+		return nil, fmt.Errorf("invalid image reference: %w", err)
+	}
 
-	resp, err := c.fetchManifestResponse(url)
+	manifestURL, err := buildRegistryURL(ref.Registry, "/v2/%s/manifests/%s", ref.Repository, ref.Tag)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.fetchManifestResponse(manifestURL)
 	if err != nil {
 		return nil, err
 	}
@@ -284,9 +308,16 @@ func (c *RegistryClient) getManifest(ref ImageReference) (*ManifestV2, error) {
 }
 
 func (c *RegistryClient) getManifestByDigest(ref ImageReference, digest string) (*ManifestV2, error) {
-	url := fmt.Sprintf("https://%s/v2/%s/manifests/%s", ref.Registry, ref.Repository, digest)
+	if err := validateDigest(digest); err != nil {
+		return nil, fmt.Errorf("invalid digest: %w", err)
+	}
 
-	req, err := http.NewRequest("GET", url, nil)
+	manifestURL, err := buildRegistryURL(ref.Registry, "/v2/%s/manifests/%s", ref.Repository, digest)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", manifestURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -316,9 +347,16 @@ func (c *RegistryClient) getManifestByDigest(ref ImageReference, digest string) 
 
 // DownloadBlob downloads a blob to a file
 func (c *RegistryClient) DownloadBlob(ref ImageReference, digest, destPath string) error {
-	url := fmt.Sprintf("https://%s/v2/%s/blobs/%s", ref.Registry, ref.Repository, digest)
+	if err := validateDigest(digest); err != nil {
+		return fmt.Errorf("invalid digest: %w", err)
+	}
 
-	req, err := http.NewRequest("GET", url, nil)
+	blobURL, err := buildRegistryURL(ref.Registry, "/v2/%s/blobs/%s", ref.Repository, digest)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest("GET", blobURL, nil)
 	if err != nil {
 		return err
 	}
