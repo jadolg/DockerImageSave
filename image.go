@@ -11,22 +11,6 @@ import (
 
 const sha256Prefix = "sha256:"
 
-// sanitizeFilenameComponent normalizes a string so it is safe to use as a single path component.
-// It removes path separators and parent directory references that could lead to path traversal.
-func sanitizeFilenameComponent(s string) string {
-	// Replace Windows and Unix path separators with underscore
-	s = strings.ReplaceAll(s, "/", "_")
-	s = strings.ReplaceAll(s, "\\", "_")
-	// Neutralize parent directory references
-	s = strings.ReplaceAll(s, "..", "_")
-	// Optionally trim surrounding whitespace
-	s = strings.TrimSpace(s)
-	if s == "" {
-		s = "unknown"
-	}
-	return s
-}
-
 // authenticateClient authenticates with the registry and returns the client
 func authenticateClient(ref ImageReference) (*RegistryClient, error) {
 	client := NewRegistryClient()
@@ -193,6 +177,11 @@ func createOutputTar(ref ImageReference, tempDir, outputDir string) (string, err
 // DownloadImage downloads a Docker image and saves it as a tar file
 func DownloadImage(imageRef string, outputDir string) (string, error) {
 	ref := ParseImageReference(imageRef)
+
+	// Validate the image reference to prevent SSRF and other attacks
+	if err := ValidateImageReference(ref); err != nil {
+		return "", fmt.Errorf("invalid image reference: %w", err)
+	}
 
 	client, err := authenticateClient(ref)
 	if err != nil {
