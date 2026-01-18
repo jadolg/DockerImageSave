@@ -279,7 +279,14 @@ func (c *RegistryClient) doSafeRegistryRequest(registry, pathFormat string, head
 		return nil, fmt.Errorf("URL host validation failed: %w", err)
 	}
 
-	req, err := http.NewRequest("GET", requestURL, nil)
+	// Reconstruct URL from validated components to satisfy taint analysis
+	sanitizedURL := &url.URL{
+		Scheme: parsedURL.Scheme,
+		Host:   parsedURL.Host,
+		Path:   parsedURL.Path,
+	}
+
+	req, err := http.NewRequest("GET", sanitizedURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
