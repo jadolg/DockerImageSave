@@ -261,9 +261,18 @@ func (c *RegistryClient) parseManifestResponse(ref ImageReference, contentType s
 	return &manifest, nil
 }
 
-// fetchManifestResponse fetches the raw manifest response from the registry
-func (c *RegistryClient) fetchManifestResponse(url string) (*http.Response, error) {
-	req, err := http.NewRequest("GET", url, nil)
+// fetchManifestResponse fetches the raw manifest response from the registry.
+func (c *RegistryClient) fetchManifestResponse(ref ImageReference, reference string) (*http.Response, error) {
+	if err := ValidateImageReference(ref); err != nil {
+		return nil, fmt.Errorf("invalid image reference: %w", err)
+	}
+
+	manifestURL, err := buildRegistryURL(ref.Registry, "/v2/%s/manifests/%s", ref.Repository, reference)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", manifestURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -282,12 +291,7 @@ func (c *RegistryClient) getManifest(ref ImageReference) (*ManifestV2, error) {
 		return nil, fmt.Errorf("invalid image reference: %w", err)
 	}
 
-	manifestURL, err := buildRegistryURL(ref.Registry, "/v2/%s/manifests/%s", ref.Repository, ref.Tag)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := c.fetchManifestResponse(manifestURL)
+	resp, err := c.fetchManifestResponse(ref, ref.Tag)
 	if err != nil {
 		return nil, err
 	}
@@ -308,6 +312,10 @@ func (c *RegistryClient) getManifest(ref ImageReference) (*ManifestV2, error) {
 }
 
 func (c *RegistryClient) getManifestByDigest(ref ImageReference, digest string) (*ManifestV2, error) {
+	if err := ValidateImageReference(ref); err != nil {
+		return nil, fmt.Errorf("invalid image reference: %w", err)
+	}
+
 	if err := validateDigest(digest); err != nil {
 		return nil, fmt.Errorf("invalid digest: %w", err)
 	}
@@ -347,6 +355,10 @@ func (c *RegistryClient) getManifestByDigest(ref ImageReference, digest string) 
 
 // DownloadBlob downloads a blob to a file
 func (c *RegistryClient) DownloadBlob(ref ImageReference, digest, destPath string) error {
+	if err := ValidateImageReference(ref); err != nil {
+		return fmt.Errorf("invalid image reference: %w", err)
+	}
+
 	if err := validateDigest(digest); err != nil {
 		return fmt.Errorf("invalid digest: %w", err)
 	}
