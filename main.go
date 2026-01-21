@@ -18,7 +18,7 @@ func printBanner() {
 }
 
 func main() {
-	configPath := flag.String("config", "config.yaml", "Path to YAML configuration file")
+	configPath := flag.String("config", "", "Path to YAML configuration file")
 	flag.Parse()
 
 	printBanner()
@@ -40,6 +40,7 @@ func main() {
 	} else {
 		addr = ":8080"
 		cacheDir = ""
+		log.Println("No config file found, using defaults (port: 8080)")
 	}
 
 	server := NewServer(addr, cacheDir)

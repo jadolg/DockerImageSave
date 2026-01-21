@@ -115,18 +115,45 @@ func (s *Server) imageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cacheFilename := s.getCacheFilename(imageName)
+	// Parse platform parameter (e.g., "linux/amd64", "linux/arm64")
+	// URL-encoded slashes (%2F) are automatically decoded by Go's URL parser
+	platform := r.URL.Query().Get("platform")
+	if platform != "" {
+		// Sanitize and validate platform - returns a safe reconstructed value
+		sanitized, err := sanitizePlatform(platform)
+		if err != nil {
+			writeJSONError(w, fmt.Sprintf("invalid platform: %v", err), http.StatusBadRequest)
+			return
+		}
+		platform = sanitized
+	} else {
+		// Normalize empty platform to default to ensure consistent cache keys
+		// This prevents duplicate downloads when one request omits platform
+		// and another explicitly specifies "linux/amd64"
+		platform = DefaultPlatform().String()
+	}
+
+	// Create a unique cache key combining image name and platform
+	cacheKey := imageName + ":" + platform
+	cacheFilename := s.getCacheFilename(imageName, platform)
 	cachePath := filepath.Join(s.cacheDir, cacheFilename)
 
-	if _, err := os.Stat(cachePath); err == nil {
-		log.Printf("Serving cached image: %s\n", imageName)
-		s.serveImageFile(w, r, cachePath, imageName)
+	// Validate that the cache path stays within the cache directory (prevent path traversal)
+	if err := validatePathContainment(s.cacheDir, cachePath); err != nil {
+		log.Printf("Security: path traversal attempt detected for image %s: %v\n", imageName, err)
+		writeJSONError(w, "invalid request", http.StatusBadRequest)
 		return
 	}
 
-	log.Printf("Downloading image: %s\n", imageName)
-	result, err, _ := s.downloadGroup.Do(imageName, func() (interface{}, error) {
-		return DownloadImage(imageName, s.cacheDir)
+	if _, err := os.Stat(cachePath); err == nil {
+		log.Printf("Serving cached image: %s (platform: %s)\n", imageName, platform)
+		s.serveImageFile(w, r, cachePath, imageName, platform)
+		return
+	}
+
+	log.Printf("Downloading image: %s (platform: %s)\n", imageName, platform)
+	result, err, _ := s.downloadGroup.Do(cacheKey, func() (interface{}, error) {
+		return DownloadImage(imageName, s.cacheDir, platform)
 	})
 	if err != nil {
 		log.Printf("Failed to download image %s: %v\n", imageName, err)
@@ -136,19 +163,65 @@ func (s *Server) imageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	imagePath := result.(string)
 
-	s.serveImageFile(w, r, imagePath, imageName)
+	s.serveImageFile(w, r, imagePath, imageName, platform)
+}
+
+// validatePlatform validates the platform string format and returns a sanitized version
+// This prevents path traversal attacks by reconstructing the platform from validated components
+func sanitizePlatform(platform string) (string, error) {
+	parts := strings.Split(platform, "/")
+	if len(parts) != 2 {
+		return "", fmt.Errorf("platform must be in format 'os/architecture' (e.g., 'linux/amd64')")
+	}
+	osName := parts[0]
+	arch := parts[1]
+
+	// Validate OS against whitelist
+	validOS := map[string]bool{"linux": true, "windows": true, "darwin": true}
+	if !validOS[osName] {
+		return "", fmt.Errorf("unsupported OS '%s', valid options: linux, windows, darwin", osName)
+	}
+
+	// Validate architecture against whitelist
+	validArch := map[string]bool{"amd64": true, "arm64": true, "arm": true, "386": true, "ppc64le": true, "s390x": true, "riscv64": true}
+	if !validArch[arch] {
+		return "", fmt.Errorf("unsupported architecture '%s', valid options: amd64, arm64, arm, 386, ppc64le, s390x, riscv64", arch)
+	}
+
+	// Return reconstructed platform from validated components (not user input)
+	// This ensures path safety by only using known-good values
+	return osName + "/" + arch, nil
 }
 
 // getCacheFilename generates a safe filename for caching
 // This must match the filename format used by createOutputTar in image.go
-func (s *Server) getCacheFilename(imageName string) string {
+func (s *Server) getCacheFilename(imageName string, platform string) string {
 	ref := ParseImageReference(imageName)
-	safeImageName := strings.ReplaceAll(ref.Repository, "/", "_")
-	return fmt.Sprintf("%s_%s.tar.gz", safeImageName, ref.Tag)
+	ref.Platform = ParsePlatform(platform)
+
+	// Replace path separators in repository to create a flat filename
+	// Note: imageName is already sanitized by sanitizeImageName before reaching here
+	repo := strings.ReplaceAll(ref.Repository, "/", "_")
+	platformStr := strings.ReplaceAll(ref.Platform.String(), "/", "_")
+
+	return fmt.Sprintf("%s_%s_%s.tar.gz", repo, ref.Tag, platformStr)
+}
+
+// validatePathContainment ensures the final path stays within the base directory
+func validatePathContainment(basePath, fullPath string) error {
+	// Clean both paths for comparison
+	cleanBase := filepath.Clean(basePath)
+	cleanFull := filepath.Clean(fullPath)
+
+	// Ensure the full path starts with the base path
+	if !strings.HasPrefix(cleanFull, cleanBase+string(filepath.Separator)) && cleanFull != cleanBase {
+		return fmt.Errorf("path traversal detected: path escapes base directory")
+	}
+	return nil
 }
 
 // serveImageFile streams an image tar file to the response with Range request support
-func (s *Server) serveImageFile(w http.ResponseWriter, r *http.Request, imagePath, imageName string) {
+func (s *Server) serveImageFile(w http.ResponseWriter, r *http.Request, imagePath, imageName string, platform string) {
 	file, err := os.Open(imagePath)
 	if err != nil {
 		log.Printf("Failed to open image file: %v\n", err)
@@ -171,7 +244,7 @@ func (s *Server) serveImageFile(w http.ResponseWriter, r *http.Request, imagePat
 		return
 	}
 
-	filename := s.getCacheFilename(imageName)
+	filename := s.getCacheFilename(imageName, platform)
 
 	w.Header().Set(contentTypeHeader, "application/gzip")
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
