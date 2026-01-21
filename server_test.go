@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -51,6 +52,65 @@ func TestImageHandler_MissingName(t *testing.T) {
 
 	if body["error"] == "" {
 		t.Error("expected error message in response")
+	}
+}
+
+func TestImageHandler_SSRFProtection(t *testing.T) {
+	tests := []struct {
+		name      string
+		imageName string
+		wantErr   string
+	}{
+		{
+			name:      "localhost with port",
+			imageName: "localhost:5000/myimage:latest",
+			wantErr:   "registry hostname not allowed",
+		},
+		{
+			name:      "private IP 192.168.x.x with port",
+			imageName: "192.168.1.1:5000/myimage:latest",
+			wantErr:   "registry hostname not allowed",
+		},
+		{
+			name:      "private IP 10.x.x.x with port",
+			imageName: "10.0.0.1:5000/myimage:latest",
+			wantErr:   "registry hostname not allowed",
+		},
+		{
+			name:      "127.0.0.1 with port",
+			imageName: "127.0.0.1:5000/myimage:v1",
+			wantErr:   "registry hostname not allowed",
+		},
+		{
+			name:      "metadata endpoint with port",
+			imageName: "169.254.169.254:80/latest/meta-data:latest",
+			wantErr:   "registry hostname not allowed",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := NewServer(":8080", "")
+
+			req := httptest.NewRequest(http.MethodGet, "/image?name="+tt.imageName, nil)
+			w := httptest.NewRecorder()
+
+			server.imageHandler(w, req)
+
+			resp := w.Result()
+			if resp.StatusCode != http.StatusBadRequest {
+				t.Errorf("expected status 400, got %d", resp.StatusCode)
+			}
+
+			var body map[string]string
+			if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+				t.Fatalf("failed to decode response: %v", err)
+			}
+
+			if !strings.Contains(body["error"], tt.wantErr) {
+				t.Errorf("expected error containing %q, got %q", tt.wantErr, body["error"])
+			}
+		})
 	}
 }
 

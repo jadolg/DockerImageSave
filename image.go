@@ -190,6 +190,11 @@ func DownloadImage(imageRef string, outputDir string, platform string) (string, 
 	ref := ParseImageReference(imageRef)
 	ref.Platform = ParsePlatform(platform)
 
+	// Validate the image reference to prevent SSRF and other attacks
+	if err := ValidateImageReference(ref); err != nil {
+		return "", fmt.Errorf("invalid image reference: %w", err)
+	}
+
 	client, err := authenticateClient(ref)
 	if err != nil {
 		return "", err
