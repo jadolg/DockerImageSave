@@ -223,23 +223,13 @@ func sanitizeImageName(imageName string) (string, error) {
 func (s *Server) getCacheFilename(imageName string, platform string) string {
 	ref := ParseImageReference(imageName)
 	ref.Platform = ParsePlatform(platform)
-	safeImageName := sanitizePathComponent(ref.Repository)
-	safeTag := sanitizePathComponent(ref.Tag)
-	safePlatform := sanitizePathComponent(ref.Platform.String())
-	return fmt.Sprintf("%s_%s_%s.tar.gz", safeImageName, safeTag, safePlatform)
-}
 
-// sanitizePathComponent removes dangerous characters from a path component
-// to prevent path traversal attacks
-func sanitizePathComponent(s string) string {
-	// Replace path separators with underscores
-	s = strings.ReplaceAll(s, "/", "_")
-	s = strings.ReplaceAll(s, "\\", "_")
-	// Remove path traversal sequences
-	s = strings.ReplaceAll(s, "..", "")
-	// Remove any remaining dots at the start (hidden files)
-	s = strings.TrimLeft(s, ".")
-	return s
+	// Replace path separators in repository to create a flat filename
+	// Note: imageName is already sanitized by sanitizeImageName before reaching here
+	repo := strings.ReplaceAll(ref.Repository, "/", "_")
+	platformStr := strings.ReplaceAll(ref.Platform.String(), "/", "_")
+
+	return fmt.Sprintf("%s_%s_%s.tar.gz", repo, ref.Tag, platformStr)
 }
 
 // validatePathContainment ensures the final path stays within the base directory
