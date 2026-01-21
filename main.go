@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"os"
 )
 
 func printBanner() {
@@ -27,17 +26,8 @@ func main() {
 	var addr string
 	var cacheDir string
 
-	// Try to load config from specified path, or fall back to config.yaml if it exists
-	configFile := *configPath
-	if configFile == "" {
-		// Check if default config.yaml exists
-		if _, err := os.Stat("config.yaml"); err == nil {
-			configFile = "config.yaml"
-		}
-	}
-
-	if configFile != "" {
-		config, err := LoadConfig(configFile)
+	if *configPath != "" {
+		config, err := LoadConfig(*configPath)
 		if err != nil {
 			log.Fatalf("Failed to load config: %v", err)
 		}
@@ -46,7 +36,7 @@ func main() {
 		cacheDir = config.CacheDir
 		config.ApplyCredentials()
 
-		log.Printf("Loaded configuration from %s", configFile)
+		log.Printf("Loaded configuration from %s", *configPath)
 	} else {
 		addr = ":8080"
 		cacheDir = ""

@@ -68,6 +68,4 @@ Remember to update the domain name in the Caddyfile.
 		"https://dockerimagesave.akiel.dev/image?name=ubuntu:25.04&platform=linux/amd64" | docker load
 	```
 
-Notes:
-- If auth is enabled on your instance, pass `X-API-Key` or `api_key` as configured.
-- `--content-disposition` lets wget honor the filename suggested by the server.
+Note: `--content-disposition` lets wget honor the filename suggested by the server.
