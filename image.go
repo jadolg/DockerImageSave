@@ -164,7 +164,8 @@ func createOutputTar(ref ImageReference, tempDir, outputDir string) (string, err
 	// Build filename using the image reference components
 	// Replace path separators with underscores to create a flat filename
 	imageName := strings.ReplaceAll(ref.Repository, "/", "_")
-	filename := fmt.Sprintf("%s_%s_%s.tar.gz", imageName, ref.Tag, ref.Platform.String())
+	platformStr := strings.ReplaceAll(ref.Platform.String(), "/", "_")
+	filename := fmt.Sprintf("%s_%s_%s.tar.gz", imageName, ref.Tag, platformStr)
 	outputPath := filepath.Join(outputDir, filename)
 
 	// Clean the path and validate it stays within the output directory
