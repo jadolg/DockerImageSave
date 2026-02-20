@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -46,10 +47,11 @@ func NewServerWithCache(addr, cacheDir string) *Server {
 	return &Server{addr: addr, cacheDir: cacheDir}
 }
 
-// Run starts the HTTP server
-func (s *Server) Run() error {
+// Start starts the HTTP server and returns the *http.Server for shutdown control.
+// It begins accepting connections immediately in a background goroutine.
+func (s *Server) Start() (*http.Server, error) {
 	if err := os.MkdirAll(s.cacheDir, 0755); err != nil {
-		return fmt.Errorf("failed to create cache directory: %w", err)
+		return nil, fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
 	mux := http.NewServeMux()
@@ -59,8 +61,21 @@ func (s *Server) Run() error {
 	mux.HandleFunc("GET /logo.png", s.logoHandler)
 	mux.Handle("GET /metrics", promhttp.Handler())
 
+	srv := &http.Server{Addr: s.addr, Handler: mux}
+
+	ln, err := net.Listen("tcp", s.addr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to listen on %s: %w", s.addr, err)
+	}
+
 	log.Printf("Starting server on %s (cache: %s)\n", s.addr, s.cacheDir)
-	return http.ListenAndServe(s.addr, mux)
+	go func() {
+		if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Server error: %v", err)
+		}
+	}()
+
+	return srv, nil
 }
 
 // healthHandler handles the /health endpoint
