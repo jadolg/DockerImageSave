@@ -15,11 +15,40 @@ import (
 const bearerPrefix = "Bearer "
 const responseBodyStr = "response body"
 
+// Platform represents a target platform for docker images
+type Platform struct {
+	OS           string
+	Architecture string
+}
+
+// DefaultPlatform returns the default platform (linux/amd64)
+func DefaultPlatform() Platform {
+	return Platform{OS: "linux", Architecture: "amd64"}
+}
+
+// String returns the platform in os/architecture format
+func (p Platform) String() string {
+	return p.OS + "/" + p.Architecture
+}
+
+// ParsePlatform parses a platform string like "linux/amd64" into a Platform struct
+func ParsePlatform(platform string) Platform {
+	if platform == "" {
+		return DefaultPlatform()
+	}
+	parts := strings.Split(platform, "/")
+	if len(parts) != 2 {
+		return DefaultPlatform()
+	}
+	return Platform{OS: parts[0], Architecture: parts[1]}
+}
+
 // ImageReference represents a parsed Docker image reference
 type ImageReference struct {
 	Registry   string
 	Repository string
 	Tag        string
+	Platform   Platform
 }
 
 // RegistryClient handles communication with Docker registries
@@ -81,6 +110,7 @@ func ParseImageReference(ref string) ImageReference {
 	result := ImageReference{
 		Registry: "registry-1.docker.io",
 		Tag:      "latest",
+		Platform: DefaultPlatform(),
 	}
 
 	if idx := strings.LastIndex(ref, ":"); idx != -1 && !strings.Contains(ref[idx:], "/") {
@@ -235,17 +265,27 @@ func isManifestList(contentType string) bool {
 	return strings.Contains(contentType, "manifest.list") || strings.Contains(contentType, "image.index")
 }
 
-// selectManifestDigest selects the best manifest from a manifest list, preferring linux/amd64
+// selectManifestDigest selects the best manifest from a manifest list based on the specified platform
 func (c *RegistryClient) selectManifestDigest(ref ImageReference, list *ManifestList) (*ManifestV2, error) {
+	targetOS := ref.Platform.OS
+	targetArch := ref.Platform.Architecture
+
+	// First, try to find exact match for the requested platform
 	for _, m := range list.Manifests {
-		if m.Platform.OS == "linux" && m.Platform.Architecture == "amd64" {
+		if m.Platform.OS == targetOS && m.Platform.Architecture == targetArch {
 			return c.getManifestByDigest(ref, m.Digest)
 		}
 	}
+
+	// If no exact match, return error with available platforms
 	if len(list.Manifests) > 0 {
-		return c.getManifestByDigest(ref, list.Manifests[0].Digest)
+		available := make([]string, 0, len(list.Manifests))
+		for _, m := range list.Manifests {
+			available = append(available, m.Platform.OS+"/"+m.Platform.Architecture)
+		}
+		return nil, fmt.Errorf("platform %s/%s not found, available platforms: %v", targetOS, targetArch, available)
 	}
-	return nil, fmt.Errorf("no suitable manifest found")
+	return nil, fmt.Errorf("no suitable manifest found for platform %s/%s", targetOS, targetArch)
 }
 
 // parseManifestResponse parses the manifest response body based on content type
