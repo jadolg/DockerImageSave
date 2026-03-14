@@ -11,10 +11,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestHealthHandler(t *testing.T) {
-	server := NewServer(":8080", "")
+	server := NewServer(":8080", "", 1*time.Hour)
 
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	w := httptest.NewRecorder()
@@ -33,7 +34,7 @@ func TestHealthHandler(t *testing.T) {
 }
 
 func TestImageHandler_MissingName(t *testing.T) {
-	server := NewServer(":8080", "")
+	server := NewServer(":8080", "", 1*time.Hour)
 
 	req := httptest.NewRequest(http.MethodGet, "/image", nil)
 	w := httptest.NewRecorder()
@@ -90,7 +91,7 @@ func TestImageHandler_SSRFProtection(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server := NewServer(":8080", "")
+			server := NewServer(":8080", "", 1*time.Hour)
 
 			req := httptest.NewRequest(http.MethodGet, "/image?name="+tt.imageName, nil)
 			w := httptest.NewRecorder()
@@ -119,7 +120,7 @@ func TestImageHandler_DownloadImage(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 
-	server := NewServer(":8080", "")
+	server := NewServer(":8080", "", 1*time.Hour)
 
 	req := httptest.NewRequest(http.MethodGet, "/image?name=alpine:latest", nil)
 	w := httptest.NewRecorder()
@@ -159,7 +160,8 @@ func TestServeImageFile_RangeRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	server := NewServerWithCache(":8080", tempDir)
+	cache, _ := NewCacheManager(tempDir, 1*time.Hour)
+	server := NewServerWithCache(":8080", cache)
 
 	t.Run("FirstHalf", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/image", nil)
@@ -266,7 +268,8 @@ func TestServeImageFile_InvalidRange(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	server := NewServerWithCache(":8080", tempDir)
+	cache, _ := NewCacheManager(tempDir, 1*time.Hour)
+	server := NewServerWithCache(":8080", cache)
 
 	req := httptest.NewRequest(http.MethodGet, "/image", nil)
 	req.Header.Set("Range", "bytes=100-200")
@@ -367,10 +370,10 @@ func TestHumanizeBytes_FormattingConsistency(t *testing.T) {
 		1099511627776, // 1.00 TB
 	}
 
-	for _, bytes := range testCases {
-		result := humanizeBytes(bytes)
+	for _, abytes := range testCases {
+		result := humanizeBytes(abytes)
 		if !strings.Contains(result, ".") {
-			t.Errorf("humanizeBytes(%d) = %s, expected decimal point for formatted size", bytes, result)
+			t.Errorf("humanizeBytes(%d) = %s, expected decimal point for formatted size", abytes, result)
 		}
 	}
 

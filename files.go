@@ -3,8 +3,6 @@ package main
 import (
 	"archive/tar"
 	"compress/gzip"
-	"crypto/sha256"
-	"encoding/hex"
 	"io"
 	"log"
 	"os"
@@ -48,15 +46,8 @@ func decompressGzip(src, dst string) error {
 	}
 	defer closeWithLog(dstFile, "destination file")
 
-	hasher := sha256.New()
-	writer := io.MultiWriter(dstFile, hasher)
-	_, err = io.Copy(writer, gzReader)
-	if err != nil {
-		return err
-	}
-
-	_ = hex.EncodeToString(hasher.Sum(nil))
-	return nil
+	_, err = io.Copy(dstFile, gzReader)
+	return err
 }
 
 // createTar creates a gzip-compressed tar archive from a source directory
