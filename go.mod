@@ -1,6 +1,6 @@
 module github.com/jadolg/DockerImageSave
 
-go 1.25.5
+go 1.26.1
 
 require (
 	github.com/prometheus/client_golang v1.23.2
