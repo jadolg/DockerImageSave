@@ -56,11 +56,8 @@ func (s *Server) Start(ctx context.Context) (*http.Server, error) {
 	mux.Handle("GET /metrics", promhttp.Handler())
 
 	srv := &http.Server{
-		Addr:              s.addr,
-		Handler:           mux,
-		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       30 * time.Second,
-		IdleTimeout:       60 * time.Second,
+		Addr:    s.addr,
+		Handler: mux,
 	}
 
 	ln, err := net.Listen("tcp", s.addr)
