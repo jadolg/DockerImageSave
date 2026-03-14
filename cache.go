@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"syscall"
 	"time"
 )
 
@@ -74,12 +73,11 @@ func (c *CacheManager) PerformCleanup() {
 			continue
 		}
 
-		stat := info.Sys().(*syscall.Stat_t)
-		atime := time.Unix(int64(stat.Atim.Sec), int64(stat.Atim.Nsec))
+		mtime := info.ModTime()
 
-		if now.Sub(atime) > c.maxCacheAge {
+		if now.Sub(mtime) > c.maxCacheAge {
 			path := filepath.Join(c.dir, file.Name())
-			log.Printf("Removing old cached file: %s (age: %v)\n", file.Name(), now.Sub(atime))
+			log.Printf("Removing old cached file: %s (age: %v)\n", file.Name(), now.Sub(mtime))
 			if err := os.Remove(path); err != nil {
 				log.Printf("Failed to remove old cached file %s: %v\n", file.Name(), err)
 			}
