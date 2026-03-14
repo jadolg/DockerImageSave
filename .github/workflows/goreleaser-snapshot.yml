@@ -1,0 +1,32 @@
+name: GoReleaser Snapshot
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Export Go Version
+        id: goversion
+        run: echo "GOVERSION=$(go version | awk '{print $3}')" >> $GITHUB_ENV
+
+      - name: Make GoReleaser snapshot
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --snapshot --clean
