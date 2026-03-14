@@ -7,6 +7,10 @@ port: 8080
 # If not specified, uses a temporary directory
 cache_dir: /tmp/docker-images
 
+# Maximum age for cached images before they are considered stale and eligible for cleanup.
+# Supports duration formats like "24h", "30m".
+max_cache_age: 48h
+
 # Per-registry credentials
 # Use registry hostname as the key
 registries:

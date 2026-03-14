@@ -3,15 +3,17 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
 
 // Config represents the application configuration
 type Config struct {
-	Port       int                       `yaml:"port"`
-	CacheDir   string                    `yaml:"cache_dir"`
-	Registries map[string]RegistryConfig `yaml:"registries"`
+	Port        int                       `yaml:"port"`
+	CacheDir    string                    `yaml:"cache_dir"`
+	MaxCacheAge time.Duration             `yaml:"max_cache_age"`
+	Registries  map[string]RegistryConfig `yaml:"registries"`
 }
 
 // RegistryConfig holds credentials for a specific registry
@@ -45,6 +47,9 @@ func LoadConfig(path string) (*Config, error) {
 func (c *Config) ApplyDefaults() {
 	if c.Port == 0 {
 		c.Port = 8080
+	}
+	if c.MaxCacheAge == 0 {
+		c.MaxCacheAge = 48 * time.Hour
 	}
 }
 

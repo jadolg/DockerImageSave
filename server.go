@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"encoding/json"
 	"fmt"
@@ -8,8 +9,7 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"path/filepath"
-	"strings"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/sync/singleflight"
@@ -23,36 +23,30 @@ const contentTypeHeader = "Content-Type"
 // Server represents the HTTP server for the Docker image service
 type Server struct {
 	addr          string
-	cacheDir      string
+	cache         *CacheManager
 	downloadGroup singleflight.Group
 }
 
 // NewServer creates a new server instance with a cache directory
-func NewServer(addr string, cacheDir string) *Server {
-	if cacheDir == "" {
-		tmpDir, err := os.MkdirTemp("", "docker-image-cache-*")
-		if err != nil {
-			log.Fatalf("failed to create temporary cache directory: %v", err)
-		}
-		cacheDir = tmpDir
-	} else if err := os.MkdirAll(cacheDir, 0755); err != nil {
-		log.Fatalf("failed to create cache directory: %v", err)
+func NewServer(addr string, cacheDir string, maxCacheAge time.Duration) *Server {
+	cache, err := NewCacheManager(cacheDir, maxCacheAge)
+	if err != nil {
+		log.Fatalf("failed to initialize cache: %v", err)
 	}
 
-	return NewServerWithCache(addr, cacheDir)
+	return NewServerWithCache(addr, cache)
 }
 
-// NewServerWithCache creates a new server instance with a custom cache directory
-func NewServerWithCache(addr, cacheDir string) *Server {
-	return &Server{addr: addr, cacheDir: cacheDir}
+// NewServerWithCache creates a new server instance with a custom cache manager
+func NewServerWithCache(addr string, cache *CacheManager) *Server {
+	return &Server{addr: addr, cache: cache}
 }
 
 // Start starts the HTTP server and returns the *http.Server for shutdown control.
 // It begins accepting connections immediately in a background goroutine.
-func (s *Server) Start() (*http.Server, error) {
-	if err := os.MkdirAll(s.cacheDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create cache directory: %w", err)
-	}
+func (s *Server) Start(ctx context.Context) (*http.Server, error) {
+	// Start background cache cleanup
+	go s.cache.StartCleanup(ctx)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.homeHandler)
@@ -68,7 +62,7 @@ func (s *Server) Start() (*http.Server, error) {
 		return nil, fmt.Errorf("failed to listen on %s: %w", s.addr, err)
 	}
 
-	log.Printf("Starting server on %s (cache: %s)\n", s.addr, s.cacheDir)
+	log.Printf("Starting server on %s (cache: %s)\n", s.addr, s.cache.Dir())
 	go func() {
 		if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Server error: %v", err)
@@ -79,7 +73,7 @@ func (s *Server) Start() (*http.Server, error) {
 }
 
 // healthHandler handles the /health endpoint
-func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Server) healthHandler(w http.ResponseWriter, _ *http.Request) {
 	_, err := fmt.Fprintln(w, "OK")
 	if err != nil {
 		log.Printf("Failed to write health response: %v\n", err)
@@ -87,7 +81,7 @@ func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // homeHandler serves the main website at /
-func (s *Server) homeHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Server) homeHandler(w http.ResponseWriter, _ *http.Request) {
 	data, err := staticFiles.ReadFile("index.html")
 	if err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -102,7 +96,7 @@ func (s *Server) homeHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // logoHandler serves the logo.png file
-func (s *Server) logoHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Server) logoHandler(w http.ResponseWriter, _ *http.Request) {
 	data, err := staticFiles.ReadFile("logo.png")
 	if err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -130,8 +124,7 @@ func (s *Server) imageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cacheFilename := s.getCacheFilename(imageName)
-	cachePath := filepath.Join(s.cacheDir, cacheFilename)
+	cachePath := s.cache.GetCachePath(imageName)
 
 	if _, err := os.Stat(cachePath); err == nil {
 		log.Printf("Serving cached image: %s\n", imageName)
@@ -141,7 +134,7 @@ func (s *Server) imageHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Downloading image: %s\n", imageName)
 	result, err, _ := s.downloadGroup.Do(imageName, func() (interface{}, error) {
-		return DownloadImage(imageName, s.cacheDir)
+		return DownloadImage(imageName, s.cache.Dir())
 	})
 	if err != nil {
 		log.Printf("Failed to download image %s: %v\n", imageName, err)
@@ -152,14 +145,6 @@ func (s *Server) imageHandler(w http.ResponseWriter, r *http.Request) {
 	imagePath := result.(string)
 
 	s.serveImageFile(w, r, imagePath, imageName)
-}
-
-// getCacheFilename generates a safe filename for caching
-// This must match the filename format used by createOutputTar in image.go
-func (s *Server) getCacheFilename(imageName string) string {
-	ref := ParseImageReference(imageName)
-	safeImageName := strings.ReplaceAll(ref.Repository, "/", "_")
-	return fmt.Sprintf("%s_%s.tar.gz", safeImageName, ref.Tag)
 }
 
 // serveImageFile streams an image tar file to the response with Range request support
@@ -186,7 +171,7 @@ func (s *Server) serveImageFile(w http.ResponseWriter, r *http.Request, imagePat
 		return
 	}
 
-	filename := s.getCacheFilename(imageName)
+	filename := s.cache.GetCacheFilename(imageName)
 
 	w.Header().Set(contentTypeHeader, "application/gzip")
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))

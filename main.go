@@ -30,6 +30,7 @@ func main() {
 
 	var addr string
 	var cacheDir string
+	var maxCacheAge time.Duration
 
 	if *configPath != "" {
 		config, err := LoadConfig(*configPath)
@@ -40,15 +41,22 @@ func main() {
 		addr = fmt.Sprintf(":%d", config.Port)
 		cacheDir = config.CacheDir
 		config.ApplyCredentials()
+		maxCacheAge = config.MaxCacheAge
 
 		log.Printf("Loaded configuration from %s", *configPath)
+		log.Printf("Using cache directory: %s and maximum age %s", cacheDir, maxCacheAge)
+
 	} else {
 		addr = ":8080"
 		cacheDir = ""
 	}
 
-	server := NewServer(addr, cacheDir)
-	srv, err := server.Start()
+	server := NewServer(addr, cacheDir, maxCacheAge)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	srv, err := server.Start(ctx)
 	if err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
@@ -58,9 +66,12 @@ func main() {
 	sig := <-quit
 	log.Printf("Received %s, shutting down gracefully...", sig)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	if err := srv.Shutdown(ctx); err != nil {
+	// Cancel the context for background tasks
+	cancel()
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer shutdownCancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Fatalf("Server forced to shutdown: %v", err)
 	}
 
