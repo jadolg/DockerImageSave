@@ -32,12 +32,12 @@ func main() {
 	var cacheDir string
 	var maxCacheAge time.Duration
 
-	if *configPath != "" {
-		config, err := LoadConfig(*configPath)
-		if err != nil {
-			log.Fatalf("Failed to load config: %v", err)
-		}
-
+	config, err := LoadConfig(*configPath)
+	if err != nil {
+		log.Printf("No config file loaded, using defaults: %v", err)
+		addr = ":8080"
+		cacheDir = ""
+	} else {
 		addr = fmt.Sprintf(":%d", config.Port)
 		cacheDir = config.CacheDir
 		config.ApplyCredentials()
@@ -45,10 +45,6 @@ func main() {
 
 		log.Printf("Loaded configuration from %s", *configPath)
 		log.Printf("Using cache directory: %s and maximum age %s", cacheDir, maxCacheAge)
-
-	} else {
-		addr = ":8080"
-		cacheDir = ""
 	}
 
 	server := NewServer(addr, cacheDir, maxCacheAge)
