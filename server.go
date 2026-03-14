@@ -55,7 +55,13 @@ func (s *Server) Start(ctx context.Context) (*http.Server, error) {
 	mux.HandleFunc("GET /logo.png", s.logoHandler)
 	mux.Handle("GET /metrics", promhttp.Handler())
 
-	srv := &http.Server{Addr: s.addr, Handler: mux}
+	srv := &http.Server{
+		Addr:              s.addr,
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
 
 	ln, err := net.Listen("tcp", s.addr)
 	if err != nil {
@@ -162,6 +168,10 @@ func (s *Server) serveImageFile(w http.ResponseWriter, r *http.Request, imagePat
 			log.Printf("Failed to close image file: %v\n", err)
 		}
 	}(file)
+
+	if err := os.Chtimes(imagePath, time.Now(), time.Now()); err != nil {
+		log.Printf("Failed to update access time for %s: %v\n", imagePath, err)
+	}
 
 	fileInfo, err := file.Stat()
 	if err != nil {
