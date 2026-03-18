@@ -209,7 +209,7 @@ func DownloadImage(imageRef string, outputDir string, maxImageSize int64) (strin
 	totalSize := totalManifestSize(manifest)
 	log.Printf("Image compressed size: %d bytes across %d layer(s)\n", totalSize, len(manifest.Layers))
 	if maxImageSize > 0 && totalSize > maxImageSize {
-		return "", fmt.Errorf("image compressed size (%d bytes) exceeds limit of %d bytes: %w", totalSize, maxImageSize, errImageTooLarge)
+		return "", fmt.Errorf("image compressed size (%s) exceeds limit of %s: %w", humanizeBytes(totalSize), humanizeBytes(maxImageSize), errImageTooLarge)
 	}
 
 	tempDir, err := os.MkdirTemp("", "docker-image-*")
