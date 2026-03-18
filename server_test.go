@@ -15,7 +15,7 @@ import (
 )
 
 func TestHealthHandler(t *testing.T) {
-	server := NewServer(":8080", "", 1*time.Hour)
+	server := NewServer(":8080", "", 1*time.Hour, 0)
 
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	w := httptest.NewRecorder()
@@ -34,7 +34,7 @@ func TestHealthHandler(t *testing.T) {
 }
 
 func TestImageHandler_MissingName(t *testing.T) {
-	server := NewServer(":8080", "", 1*time.Hour)
+	server := NewServer(":8080", "", 1*time.Hour, 0)
 
 	req := httptest.NewRequest(http.MethodGet, "/image", nil)
 	w := httptest.NewRecorder()
@@ -91,7 +91,7 @@ func TestImageHandler_SSRFProtection(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server := NewServer(":8080", "", 1*time.Hour)
+			server := NewServer(":8080", "", 1*time.Hour, 0)
 
 			req := httptest.NewRequest(http.MethodGet, "/image?name="+tt.imageName, nil)
 			w := httptest.NewRecorder()
@@ -120,7 +120,7 @@ func TestImageHandler_DownloadImage(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 
-	server := NewServer(":8080", "", 1*time.Hour)
+	server := NewServer(":8080", "", 1*time.Hour, 0)
 
 	req := httptest.NewRequest(http.MethodGet, "/image?name=alpine:latest", nil)
 	w := httptest.NewRecorder()
@@ -161,7 +161,7 @@ func TestServeImageFile_RangeRequest(t *testing.T) {
 	}
 
 	cache, _ := NewCacheManager(tempDir, 1*time.Hour)
-	server := NewServerWithCache(":8080", cache)
+	server := NewServerWithCache(":8080", cache, 0)
 
 	t.Run("FirstHalf", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/image", nil)
@@ -269,7 +269,7 @@ func TestServeImageFile_InvalidRange(t *testing.T) {
 	}
 
 	cache, _ := NewCacheManager(tempDir, 1*time.Hour)
-	server := NewServerWithCache(":8080", cache)
+	server := NewServerWithCache(":8080", cache, 0)
 
 	req := httptest.NewRequest(http.MethodGet, "/image", nil)
 	req.Header.Set("Range", "bytes=100-200")

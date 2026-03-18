@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -25,21 +26,22 @@ type Server struct {
 	addr          string
 	cache         *CacheManager
 	downloadGroup singleflight.Group
+	maxImageSize  int64
 }
 
 // NewServer creates a new server instance with a cache directory
-func NewServer(addr string, cacheDir string, maxCacheAge time.Duration) *Server {
+func NewServer(addr string, cacheDir string, maxCacheAge time.Duration, maxImageSize int64) *Server {
 	cache, err := NewCacheManager(cacheDir, maxCacheAge)
 	if err != nil {
 		log.Fatalf("failed to initialize cache: %v", err)
 	}
 
-	return NewServerWithCache(addr, cache)
+	return NewServerWithCache(addr, cache, maxImageSize)
 }
 
 // NewServerWithCache creates a new server instance with a custom cache manager
-func NewServerWithCache(addr string, cache *CacheManager) *Server {
-	return &Server{addr: addr, cache: cache}
+func NewServerWithCache(addr string, cache *CacheManager, maxImageSize int64) *Server {
+	return &Server{addr: addr, cache: cache, maxImageSize: maxImageSize}
 }
 
 // Start starts the HTTP server and returns the *http.Server for shutdown control.
@@ -137,10 +139,14 @@ func (s *Server) imageHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Downloading image: %s\n", imageName)
 	result, err, _ := s.downloadGroup.Do(imageName, func() (interface{}, error) {
-		return DownloadImage(imageName, s.cache.Dir())
+		return DownloadImage(imageName, s.cache.Dir(), s.maxImageSize)
 	})
 	if err != nil {
 		log.Printf("Failed to download image %s: %v\n", imageName, err)
+		if errors.Is(err, errImageTooLarge) {
+			writeJSONError(w, fmt.Sprintf("failed to download image: %v", err), http.StatusBadRequest)
+			return
+		}
 		errorsTotalMetric.Inc()
 		writeJSONError(w, fmt.Sprintf("failed to download image: %v", err), http.StatusInternalServerError)
 		return
@@ -198,19 +204,4 @@ func writeJSONError(w http.ResponseWriter, message string, statusCode int) {
 		errorsTotalMetric.Inc()
 		log.Printf("Failed to write JSON error response: %v\n", err)
 	}
-}
-
-// humanizeBytes converts bytes to a human-readable format
-func humanizeBytes(bytes int64) string {
-	const unit = 1024
-	if bytes < unit {
-		return fmt.Sprintf("%d B", bytes)
-	}
-	div, exp := int64(unit), 0
-	for n := bytes / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	units := []string{"KB", "MB", "GB", "TB", "PB"}
-	return fmt.Sprintf("%.2f %s", float64(bytes)/float64(div), units[exp])
 }

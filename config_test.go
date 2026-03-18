@@ -127,6 +127,73 @@ func TestLoadConfig_InvalidYAML(t *testing.T) {
 	}
 }
 
+func TestParseByteSize(t *testing.T) {
+	tests := []struct {
+		input string
+		want  int64
+		isErr bool
+	}{
+		{"1024", 1024, false},
+		{"512B", 512, false},
+		{"1K", 1024, false},
+		{"1KB", 1024, false},
+		{"500M", 500 * 1024 * 1024, false},
+		{"500MB", 500 * 1024 * 1024, false},
+		{"2G", 2 * 1024 * 1024 * 1024, false},
+		{"2GB", 2 * 1024 * 1024 * 1024, false},
+		{"1T", 1024 * 1024 * 1024 * 1024, false},
+		{"1TB", 1024 * 1024 * 1024 * 1024, false},
+		{"1.5G", int64(1.5 * 1024 * 1024 * 1024), false},
+		{"  2G  ", 2 * 1024 * 1024 * 1024, false},
+		{"2g", 2 * 1024 * 1024 * 1024, false},
+		{"notanumber", 0, true},
+		{"xyzG", 0, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got, err := parseByteSize(tt.input)
+			if tt.isErr {
+				if err == nil {
+					t.Errorf("parseByteSize(%q): expected error, got %d", tt.input, got)
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("parseByteSize(%q): unexpected error: %v", tt.input, err)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("parseByteSize(%q) = %d, want %d", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestLoadConfig_MaxImageSize(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "config-test-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanupTempDir(t, tempDir)
+
+	configContent := `max_image_size: 2G`
+	configPath := filepath.Join(tempDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	config, err := LoadConfig(configPath)
+	if err != nil {
+		t.Fatalf("failed to load config: %v", err)
+	}
+
+	want := ByteSize(2 * 1024 * 1024 * 1024)
+	if config.MaxImageSize != want {
+		t.Errorf("MaxImageSize = %d, want %d", config.MaxImageSize, want)
+	}
+}
+
 func TestApplyCredentials(t *testing.T) {
 	config := &Config{
 		Port: 8080,

@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -208,6 +209,51 @@ func TestCreateLayerMetadata_WithParent(t *testing.T) {
 	}
 }
 
+func TestTotalManifestSize(t *testing.T) {
+	manifest := &ManifestV2{
+		Config: struct {
+			MediaType string `json:"mediaType"`
+			Size      int64  `json:"size"`
+			Digest    string `json:"digest"`
+		}{Size: 1024},
+		Layers: []struct {
+			MediaType string `json:"mediaType"`
+			Size      int64  `json:"size"`
+			Digest    string `json:"digest"`
+		}{
+			{Size: 10 * 1024 * 1024},
+			{Size: 20 * 1024 * 1024},
+		},
+	}
+
+	got := totalManifestSize(manifest)
+	want := int64(1024 + 10*1024*1024 + 20*1024*1024)
+	if got != want {
+		t.Errorf("totalManifestSize = %d, want %d", got, want)
+	}
+}
+
+func TestDownloadImage_SizeLimitExceeded(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	outputDir, err := os.MkdirTemp("", "test-download-size-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanupTempDir(t, outputDir)
+
+	// Set a 1-byte limit — any real image will exceed this
+	_, err = DownloadImage("alpine:latest", outputDir, 1)
+	if err == nil {
+		t.Fatal("expected error for size limit exceeded")
+	}
+	if !errors.Is(err, errImageTooLarge) {
+		t.Errorf("expected errImageTooLarge, got: %v", err)
+	}
+}
+
 func TestDownloadImage_PublicImage(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
@@ -219,7 +265,7 @@ func TestDownloadImage_PublicImage(t *testing.T) {
 	}
 	defer cleanupTempDir(t, outputDir)
 
-	imagePath, err := DownloadImage("alpine:latest", outputDir)
+	imagePath, err := DownloadImage("alpine:latest", outputDir, 0)
 	if err != nil {
 		t.Fatalf("DownloadImage failed: %v", err)
 	}
@@ -248,7 +294,7 @@ func TestDownloadImage_WithAuthentication(t *testing.T) {
 	}
 	defer cleanupTempDir(t, outputDir)
 
-	imagePath, err := DownloadImage("busybox:latest", outputDir)
+	imagePath, err := DownloadImage("busybox:latest", outputDir, 0)
 	if err != nil {
 		t.Fatalf("DownloadImage with auth failed: %v", err)
 	}
@@ -269,7 +315,7 @@ func TestDownloadImage_NonExistentImage(t *testing.T) {
 	}
 	defer cleanupTempDir(t, outputDir)
 
-	_, err = DownloadImage("thisimagedoesnotexist12345:nonexistenttag", outputDir)
+	_, err = DownloadImage("thisimagedoesnotexist12345:nonexistenttag", outputDir, 0)
 	if err == nil {
 		t.Error("expected error for non-existent image")
 	}

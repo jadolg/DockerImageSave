@@ -31,6 +31,7 @@ func main() {
 	var addr string
 	var cacheDir string
 	var maxCacheAge time.Duration
+	var maxImageSize int64
 
 	config, err := LoadConfig(*configPath)
 	if err != nil {
@@ -42,12 +43,16 @@ func main() {
 		cacheDir = config.CacheDir
 		config.ApplyCredentials()
 		maxCacheAge = config.MaxCacheAge
+		maxImageSize = int64(config.MaxImageSize)
 
 		log.Printf("Loaded configuration from %s", *configPath)
 		log.Printf("Using cache directory: %s and maximum age %s", cacheDir, maxCacheAge)
+		if maxImageSize > 0 {
+			log.Printf("Maximum image size: %d bytes", maxImageSize)
+		}
 	}
 
-	server := NewServer(addr, cacheDir, maxCacheAge)
+	server := NewServer(addr, cacheDir, maxCacheAge, maxImageSize)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

@@ -10,10 +10,11 @@ import (
 
 // Config represents the application configuration
 type Config struct {
-	Port        int                       `yaml:"port"`
-	CacheDir    string                    `yaml:"cache_dir"`
-	MaxCacheAge time.Duration             `yaml:"max_cache_age"`
-	Registries  map[string]RegistryConfig `yaml:"registries"`
+	Port         int                       `yaml:"port"`
+	CacheDir     string                    `yaml:"cache_dir"`
+	MaxCacheAge  time.Duration             `yaml:"max_cache_age"`
+	MaxImageSize ByteSize                  `yaml:"max_image_size"`
+	Registries   map[string]RegistryConfig `yaml:"registries"`
 }
 
 // RegistryConfig holds credentials for a specific registry

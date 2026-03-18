@@ -11,6 +11,12 @@ cache_dir: /tmp/docker-images
 # Supports duration formats like "24h", "30m".
 max_cache_age: 48h
 
+# Maximum compressed image size allowed for download. 0 or omitted means no limit.
+# The check is based on the compressed layer sizes reported by the registry manifest,
+# so actual disk usage will be higher once layers are decompressed.
+# Accepts human-readable units: K/KB, M/MB, G/GB, T/TB, or a plain byte count.
+# max_image_size: 2G
+
 # Per-registry credentials
 # Use registry hostname as the key
 registries:

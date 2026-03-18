@@ -2,12 +2,15 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
 )
+
+var errImageTooLarge = errors.New("image too large")
 
 const sha256Prefix = "sha256:"
 
@@ -103,6 +106,15 @@ func createLayerMetadata(layerDir, diffID string, index int, imageConfig *ImageC
 	return os.WriteFile(filepath.Join(layerDir, "json"), layerJSONBytes, 0644)
 }
 
+// totalManifestSize returns the total compressed size of all layers plus the config blob.
+func totalManifestSize(manifest *ManifestV2) int64 {
+	size := manifest.Config.Size
+	for _, layer := range manifest.Layers {
+		size += layer.Size
+	}
+	return size
+}
+
 // downloadAllLayers downloads all layers and returns their diff IDs
 func downloadAllLayers(client *RegistryClient, ref ImageReference, manifest *ManifestV2, imageConfig *ImageConfig, tempDir string) ([]string, error) {
 	layerPaths := make([]string, len(manifest.Layers))
@@ -174,8 +186,9 @@ func createOutputTar(ref ImageReference, tempDir, outputDir string) (string, err
 	return outputPath, nil
 }
 
-// DownloadImage downloads a Docker image and saves it as a tar file
-func DownloadImage(imageRef string, outputDir string) (string, error) {
+// DownloadImage downloads a Docker image and saves it as a tar file.
+// If maxImageSize > 0, the download is rejected when the total compressed layer size exceeds that limit.
+func DownloadImage(imageRef string, outputDir string, maxImageSize int64) (string, error) {
 	ref := ParseImageReference(imageRef)
 
 	// Validate the image reference to prevent SSRF and other attacks
@@ -191,6 +204,12 @@ func DownloadImage(imageRef string, outputDir string) (string, error) {
 	manifest, err := fetchManifest(client, ref)
 	if err != nil {
 		return "", err
+	}
+
+	totalSize := totalManifestSize(manifest)
+	log.Printf("Image compressed size: %d bytes across %d layer(s)\n", totalSize, len(manifest.Layers))
+	if maxImageSize > 0 && totalSize > maxImageSize {
+		return "", fmt.Errorf("image compressed size (%d bytes) exceeds limit of %d bytes: %w", totalSize, maxImageSize, errImageTooLarge)
 	}
 
 	tempDir, err := os.MkdirTemp("", "docker-image-*")
