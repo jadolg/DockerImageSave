@@ -258,7 +258,10 @@ func TestSelectManifestDigest_ExactMatch(t *testing.T) {
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		manifest := ManifestV2{SchemaVersion: 2}
 		w.Header().Set("Content-Type", "application/vnd.docker.distribution.manifest.v2+json")
-		json.NewEncoder(w).Encode(manifest)
+		err := json.NewEncoder(w).Encode(manifest)
+		if err != nil {
+			t.Errorf("failed to write response: %v", err)
+		}
 	}))
 	defer mockServer.Close()
 
