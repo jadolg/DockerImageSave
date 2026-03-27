@@ -3,10 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 )
 
 const sha256Prefix = "sha256:"
@@ -15,18 +16,22 @@ const sha256Prefix = "sha256:"
 func authenticateClient(ref ImageReference) (*RegistryClient, error) {
 	client := NewRegistryClient()
 
-	log.Printf("Authenticating with %s...\n", ref.Registry)
+	log.WithField("registry", ref.Registry).Info("Authenticating with registry")
 	if err := client.Authenticate(ref); err != nil {
 		return nil, fmt.Errorf("authentication failed: %w", err)
 	}
-	log.Printf("Authenticated as: %s\n", client.GetAuthenticatedUser())
+	log.WithField("user", client.GetAuthenticatedUser()).Info("Authenticated successfully")
 
 	return client, nil
 }
 
 // fetchManifest retrieves the manifest for the image for the given platform
 func fetchManifest(client *RegistryClient, ref ImageReference, platform Platform) (*ManifestV2, error) {
-	log.Printf("Fetching manifest for %s:%s (platform: %s)...\n", ref.Repository, ref.Tag, platform)
+	log.WithFields(log.Fields{
+		"repository": ref.Repository,
+		"tag":        ref.Tag,
+		"platform":   platform,
+	}).Info("Fetching manifest")
 	manifest, err := client.getManifest(ref, platform)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get manifest: %w", err)
@@ -36,7 +41,7 @@ func fetchManifest(client *RegistryClient, ref ImageReference, platform Platform
 
 // downloadImageConfig downloads and parses the image configuration
 func downloadImageConfig(client *RegistryClient, ref ImageReference, manifest *ManifestV2, tempDir string) (*ImageConfig, string, error) {
-	log.Println("Downloading image config...")
+	log.Info("Downloading image config")
 	configDigest := strings.TrimPrefix(manifest.Config.Digest, sha256Prefix)
 	configPath := filepath.Join(tempDir, configDigest+".json")
 	if err := client.DownloadBlob(ref, manifest.Config.Digest, configPath); err != nil {
@@ -58,7 +63,11 @@ func downloadImageConfig(client *RegistryClient, ref ImageReference, manifest *M
 
 // downloadAndProcessLayer downloads a single layer and creates its metadata files
 func downloadAndProcessLayer(client *RegistryClient, ref ImageReference, layerDigestFull string, index int, totalLayers int, imageConfig *ImageConfig, tempDir string) (string, error) {
-	log.Printf("Downloading layer %d/%d: %s\n", index+1, totalLayers, layerDigestFull[:19]+"...")
+	log.WithFields(log.Fields{
+		"layer_index":  index + 1,
+		"total_layers": totalLayers,
+		"digest":       layerDigestFull[:19] + "...",
+	}).Info("Downloading layer")
 	layerDigest := strings.TrimPrefix(layerDigestFull, sha256Prefix)
 
 	compressedPath := filepath.Join(tempDir, layerDigest+".tar.gz")
@@ -167,12 +176,12 @@ func createOutputTar(ref ImageReference, tempDir, outputDir string, platform Pla
 		return "", fmt.Errorf("output path escapes cache directory: %s", cleanPath)
 	}
 
-	log.Println("Creating tar archive...")
+	log.Info("Creating tar archive")
 	if err := createTar(tempDir, outputPath); err != nil {
 		return "", fmt.Errorf("failed to create tar: %w", err)
 	}
 
-	log.Printf("Image saved to: %s\n", outputPath)
+	log.WithField("path", outputPath).Info("Image saved")
 	return outputPath, nil
 }
 
@@ -201,7 +210,7 @@ func DownloadImage(imageRef string, outputDir string, platform Platform) (string
 	}
 	defer func(path string) {
 		if err := os.RemoveAll(path); err != nil {
-			log.Printf("Failed to remove temp dir: %s\n", err)
+			log.WithError(err).Warn("Failed to remove temp dir")
 		}
 	}(tempDir)
 

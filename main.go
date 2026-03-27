@@ -4,20 +4,24 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func printBanner() {
 	banner := `
- ___            _               _                         ___                   _              _             ___                          
-| . \ ___  ___ | |__ ___  _ _  | |._ _ _  ___  ___  ___  | . \ ___  _ _ _ ._ _ | | ___  ___  _| | ___  _ _  / __> ___  _ _  _ _  ___  _ _ 
-| | |/ . \/ | '| / // ._>| '_> | || ' ' |<_> |/ . |/ ._> | | |/ . \| | | || ' || |/ . \<_> |/ . |/ ._>| '_> \__ \/ ._>| '_>| | |/ ._>| '_>
-|___/\___/\_|_.|_\_\\___.|_|   |_||_|_|_|<___|\_. |\___. |___/\___/|__/_/ |_|_||_|\___/<___|\___|\___.|_|   <___/\___.|_|  |__/ \___.|_|  
-                                              <___'    by Cuban developers for Cuban developers
+  _____             _           _____                             _____                 
+ |  __ \           | |         |_   _|                           / ____|                
+ | |  | | ___   ___| | _____ _ __| |  _ __ ___   __ _  __ _  ___| (___   __ ___   _____ 
+ | |  | |/ _ \ / __| |/ / _ \ '__| | | '_ ' _ \ / _' |/ _' |/ _ \\___ \ / _' \ \ / / _ \
+ | |__| | (_) | (__|   <  __/ | _| |_| | | | | | (_| | (_| |  __/____) | (_| |\ V /  __/
+ |_____/ \___/ \___|_|\_\___|_||_____|_| |_| |_|\__,_|\__, |\___|_____/ \__,_| \_/ \___|
+         for Cuban developers, by Cuban developers     __/ |                            
+                                                      |___/                             
 	`
 	fmt.Println(banner)
 }
@@ -34,7 +38,7 @@ func main() {
 
 	config, err := LoadConfig(*configPath)
 	if err != nil {
-		log.Printf("No config file loaded, using defaults: %v", err)
+		log.WithError(err).Warn("No config file loaded, using defaults")
 		addr = ":8080"
 		cacheDir = ""
 	} else {
@@ -43,8 +47,11 @@ func main() {
 		config.ApplyCredentials()
 		maxCacheAge = config.MaxCacheAge
 
-		log.Printf("Loaded configuration from %s", *configPath)
-		log.Printf("Using cache directory: %s and maximum age %s", cacheDir, maxCacheAge)
+		log.WithField("path", *configPath).Info("Loaded configuration")
+		log.WithFields(log.Fields{
+			"cache_dir": cacheDir,
+			"max_age":   maxCacheAge,
+		}).Info("Using cache directory")
 	}
 
 	server := NewServer(addr, cacheDir, maxCacheAge)
@@ -54,13 +61,13 @@ func main() {
 
 	srv, err := server.Start(ctx)
 	if err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+		log.WithError(err).Fatal("Failed to start server")
 	}
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	sig := <-quit
-	log.Printf("Received %s, shutting down gracefully...", sig)
+	log.WithField("signal", sig).Info("Received signal, shutting down gracefully")
 
 	// Cancel the context for background tasks
 	cancel()
@@ -68,8 +75,8 @@ func main() {
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer shutdownCancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Fatalf("Server forced to shutdown: %v", err)
+		log.WithError(err).Fatal("Server forced to shutdown")
 	}
 
-	log.Println("Server stopped")
+	log.Info("Server stopped")
 }

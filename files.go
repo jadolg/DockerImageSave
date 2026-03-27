@@ -4,15 +4,16 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // closeWithLog closes an io.Closer and logs any error with the given context
 func closeWithLog(c io.Closer, context string) {
 	if err := c.Close(); err != nil {
-		log.Printf("Error closing %s: %v\n", context, err)
+		log.WithField("context", context).WithError(err).Warn("Error closing resource")
 	}
 }
 

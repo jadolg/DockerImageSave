@@ -5,11 +5,12 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"os"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/sync/singleflight"
@@ -31,7 +32,7 @@ type Server struct {
 func NewServer(addr string, cacheDir string, maxCacheAge time.Duration) *Server {
 	cache, err := NewCacheManager(cacheDir, maxCacheAge)
 	if err != nil {
-		log.Fatalf("failed to initialize cache: %v", err)
+		log.WithError(err).Fatal("Failed to initialize cache")
 	}
 
 	return NewServerWithCache(addr, cache)
@@ -66,10 +67,13 @@ func (s *Server) Start(ctx context.Context) (*http.Server, error) {
 		return nil, fmt.Errorf("failed to listen on %s: %w", s.addr, err)
 	}
 
-	log.Printf("Starting server on %s (cache: %s)\n", s.addr, s.cache.Dir())
+	log.WithFields(log.Fields{
+		"addr":      s.addr,
+		"cache_dir": s.cache.Dir(),
+	}).Info("Starting server")
 	go func() {
 		if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Server error: %v", err)
+			log.WithError(err).Fatal("Server error")
 		}
 	}()
 
@@ -80,7 +84,7 @@ func (s *Server) Start(ctx context.Context) (*http.Server, error) {
 func (s *Server) healthHandler(w http.ResponseWriter, _ *http.Request) {
 	_, err := fmt.Fprintln(w, "OK")
 	if err != nil {
-		log.Printf("Failed to write health response: %v\n", err)
+		log.WithError(err).Warn("Failed to write health response")
 	}
 }
 
@@ -95,7 +99,7 @@ func (s *Server) homeHandler(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set(contentTypeHeader, "text/html; charset=utf-8")
 	_, err = w.Write(data)
 	if err != nil {
-		log.Printf("Failed to write home page response: %v\n", err)
+		log.WithError(err).Warn("Failed to write home page response")
 	}
 }
 
@@ -109,7 +113,7 @@ func (s *Server) logoHandler(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set(contentTypeHeader, "image/png")
 	_, err = w.Write(data)
 	if err != nil {
-		log.Printf("Failed to write logo response: %v\n", err)
+		log.WithError(err).Warn("Failed to write logo response")
 	}
 }
 
@@ -128,18 +132,26 @@ func (s *Server) imageHandler(w http.ResponseWriter, r *http.Request) {
 	cachePath := s.cache.GetCachePath(imageName, platform)
 
 	if _, err := os.Stat(cachePath); err == nil {
-		log.Printf("Serving cached image: %s (%s)\n", imageName, platform)
+		log.WithFields(log.Fields{
+			"image":    imageName,
+			"platform": platform,
+		}).Info("Serving cached image")
 		s.serveImageFile(w, r, cachePath, imageName, platform)
 		return
 	}
 
-	log.Printf("Downloading image: %s (%s)\n", imageName, platform)
+	log.WithFields(log.Fields{
+		"image":    imageName,
+		"platform": platform,
+	}).Info("Downloading image")
 	sfKey := imageName + "_" + platform.String()
 	result, err, _ := s.downloadGroup.Do(sfKey, func() (interface{}, error) {
 		return DownloadImage(imageName, s.cache.Dir(), platform)
 	})
 	if err != nil {
-		log.Printf("Failed to download image %s: %v\n", imageName, err)
+		log.WithFields(log.Fields{
+			"image": imageName,
+		}).WithError(err).Error("Failed to download image")
 		errorsTotalMetric.Inc()
 		writeJSONError(w, fmt.Sprintf("failed to download image: %v", err), http.StatusInternalServerError)
 		return
@@ -158,7 +170,7 @@ func (s *Server) platformsHandler(w http.ResponseWriter, r *http.Request) {
 
 	platforms, err := GetImagePlatforms(imageName)
 	if err != nil {
-		log.Printf("Failed to get platforms for %s: %v\n", imageName, err)
+		log.WithField("image", imageName).WithError(err).Error("Failed to get platforms")
 		writeJSONError(w, fmt.Sprintf("failed to get platforms: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -212,7 +224,7 @@ func platformFromRequest(w http.ResponseWriter, r *http.Request) (Platform, bool
 func (s *Server) serveImageFile(w http.ResponseWriter, r *http.Request, imagePath, imageName string, platform Platform) {
 	file, err := os.Open(imagePath)
 	if err != nil {
-		log.Printf("Failed to open image file: %v\n", err)
+		log.WithError(err).Error("Failed to open image file")
 		errorsTotalMetric.Inc()
 		writeJSONError(w, "internal server error", http.StatusInternalServerError)
 		return
@@ -220,17 +232,19 @@ func (s *Server) serveImageFile(w http.ResponseWriter, r *http.Request, imagePat
 	defer func(file *os.File) {
 		err := file.Close()
 		if err != nil {
-			log.Printf("Failed to close image file: %v\n", err)
+			log.WithError(err).Warn("Failed to close image file")
 		}
 	}(file)
 
 	if err := os.Chtimes(imagePath, time.Now(), time.Now()); err != nil {
-		log.Printf("Failed to update access time for %s: %v\n", imagePath, err)
+		log.WithFields(log.Fields{
+			"path": imagePath,
+		}).WithError(err).Warn("Failed to update access time")
 	}
 
 	fileInfo, err := file.Stat()
 	if err != nil {
-		log.Printf("Failed to stat image file: %v\n", err)
+		log.WithError(err).Error("Failed to stat image file")
 		errorsTotalMetric.Inc()
 		writeJSONError(w, "internal server error", http.StatusInternalServerError)
 		return
@@ -243,7 +257,11 @@ func (s *Server) serveImageFile(w http.ResponseWriter, r *http.Request, imagePat
 
 	http.ServeContent(w, r, filename, fileInfo.ModTime(), file)
 
-	log.Printf("Served image: %s (%s, %s)\n", imageName, platform, humanizeBytes(fileInfo.Size()))
+	log.WithFields(log.Fields{
+		"image":    imageName,
+		"platform": platform,
+		"size":     humanizeBytes(fileInfo.Size()),
+	}).Info("Served image")
 	pullsCountMetric.Inc()
 }
 
@@ -252,7 +270,7 @@ func writeJSON(w http.ResponseWriter, statusCode int, v interface{}) {
 	w.Header().Set(contentTypeHeader, "application/json")
 	w.WriteHeader(statusCode)
 	if err := json.NewEncoder(w).Encode(v); err != nil {
-		log.Printf("Failed to write JSON response: %v\n", err)
+		log.WithError(err).Warn("Failed to write JSON response")
 	}
 }
 

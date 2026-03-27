@@ -3,11 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -48,7 +49,7 @@ func (c *CacheManager) StartCleanup(ctx context.Context) {
 		case <-ticker.C:
 			c.PerformCleanup()
 		case <-ctx.Done():
-			log.Println("Stopping cache cleanup background task")
+			log.Info("Stopping cache cleanup background task")
 			return
 		}
 	}
@@ -58,7 +59,7 @@ func (c *CacheManager) StartCleanup(ctx context.Context) {
 func (c *CacheManager) PerformCleanup() {
 	files, err := os.ReadDir(c.dir)
 	if err != nil {
-		log.Printf("Failed to read cache directory during cleanup: %v\n", err)
+		log.WithError(err).Error("Failed to read cache directory during cleanup")
 		return
 	}
 
@@ -70,7 +71,7 @@ func (c *CacheManager) PerformCleanup() {
 
 		info, err := file.Info()
 		if err != nil {
-			log.Printf("Failed to get info for file %s during cleanup: %v\n", file.Name(), err)
+			log.WithField("file", file.Name()).WithError(err).Warn("Failed to get info for file during cleanup")
 			continue
 		}
 
@@ -78,9 +79,12 @@ func (c *CacheManager) PerformCleanup() {
 
 		if now.Sub(mtime) > c.maxCacheAge {
 			path := filepath.Join(c.dir, file.Name())
-			log.Printf("Removing old cached file: %s (age: %v)\n", file.Name(), now.Sub(mtime))
+			log.WithFields(log.Fields{
+				"file": file.Name(),
+				"age":  now.Sub(mtime),
+			}).Info("Removing old cached file")
 			if err := os.Remove(path); err != nil {
-				log.Printf("Failed to remove old cached file %s: %v\n", file.Name(), err)
+				log.WithField("file", file.Name()).WithError(err).Error("Failed to remove old cached file")
 			}
 		}
 	}
