@@ -160,6 +160,13 @@ func createOutputTar(ref ImageReference, tempDir, outputDir string, platform Pla
 
 	outputPath := filepath.Join(outputDir, imageFilename(ref, platform))
 
+	// Defense-in-depth: confirm the assembled path stays within the output directory.
+	cleanOut := filepath.Clean(outputDir)
+	cleanPath := filepath.Clean(outputPath)
+	if !strings.HasPrefix(cleanPath, cleanOut+string(filepath.Separator)) {
+		return "", fmt.Errorf("output path escapes cache directory: %s", cleanPath)
+	}
+
 	log.Println("Creating tar archive...")
 	if err := createTar(tempDir, outputPath); err != nil {
 		return "", fmt.Errorf("failed to create tar: %w", err)

@@ -282,10 +282,13 @@ func (c *RegistryClient) selectManifestDigest(ref ImageReference, list *Manifest
 			return c.getManifestByDigest(ref, m.Digest)
 		}
 	}
-	if platform.Variant != "" {
-		return nil, fmt.Errorf("no manifest found for platform %s/%s/%s", platform.OS, platform.Architecture, platform.Variant)
+
+	available := make([]string, 0, len(list.Manifests))
+	for _, m := range list.Manifests {
+		p := Platform{OS: m.Platform.OS, Architecture: m.Platform.Architecture, Variant: m.Platform.Variant}
+		available = append(available, p.String())
 	}
-	return nil, fmt.Errorf("no manifest found for platform %s/%s", platform.OS, platform.Architecture)
+	return nil, fmt.Errorf("no manifest found for platform %s; available: %s", platform, strings.Join(available, ", "))
 }
 
 // parseManifestResponse parses the manifest response body based on content type
