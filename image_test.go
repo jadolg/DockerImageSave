@@ -274,3 +274,51 @@ func TestDownloadImage_NonExistentImage(t *testing.T) {
 		t.Error("expected error for non-existent image")
 	}
 }
+
+func TestDownloadImage_NonExistentPlatform(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	tests := []struct {
+		name     string
+		image    string
+		platform Platform
+	}{
+		{
+			name:     "windows image on unsupported arch",
+			image:    "alpine:latest",
+			platform: Platform{OS: "windows", Architecture: "amd64"},
+		},
+		{
+			name:     "nonexistent OS",
+			image:    "alpine:latest",
+			platform: Platform{OS: "solaris", Architecture: "amd64"},
+		},
+		{
+			name:     "nonexistent arch",
+			image:    "alpine:latest",
+			platform: Platform{OS: "linux", Architecture: "mips64"},
+		},
+		{
+			name:     "nonexistent variant",
+			image:    "alpine:latest",
+			platform: Platform{OS: "linux", Architecture: "arm", Variant: "v5"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			outputDir, err := os.MkdirTemp("", "test-download-badplatform-*")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer cleanupTempDir(t, outputDir)
+
+			_, err = DownloadImage(tt.image, outputDir, tt.platform)
+			if err == nil {
+				t.Errorf("expected error for unsupported platform %s/%s/%s", tt.platform.OS, tt.platform.Architecture, tt.platform.Variant)
+			}
+		})
+	}
+}
