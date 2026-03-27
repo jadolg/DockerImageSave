@@ -97,6 +97,10 @@ func (c *CacheManager) GetCacheFilename(imageName string, platform Platform) str
 	safeTag := sanitizeFilenameComponent(ref.Tag)
 	safeOS := sanitizeFilenameComponent(platform.OS)
 	safeArch := sanitizeFilenameComponent(platform.Architecture)
+	if platform.Variant != "" {
+		safeVariant := sanitizeFilenameComponent(platform.Variant)
+		return fmt.Sprintf("%s_%s_%s_%s_%s.tar.gz", safeImageName, safeTag, safeOS, safeArch, safeVariant)
+	}
 	return fmt.Sprintf("%s_%s_%s_%s.tar.gz", safeImageName, safeTag, safeOS, safeArch)
 }
 

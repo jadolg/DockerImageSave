@@ -250,19 +250,17 @@ func isManifestList(contentType string) bool {
 
 // selectManifestDigest selects the manifest matching the given platform from a manifest list
 func (c *RegistryClient) selectManifestDigest(ref ImageReference, list *ManifestList, platform Platform) (*ManifestV2, error) {
-	// Try exact match with variant first
-	if platform.Variant != "" {
-		for _, m := range list.Manifests {
-			if m.Platform.OS == platform.OS && m.Platform.Architecture == platform.Architecture && m.Platform.Variant == platform.Variant {
-				return c.getManifestByDigest(ref, m.Digest)
-			}
-		}
-	}
-	// Try OS + architecture match
 	for _, m := range list.Manifests {
-		if m.Platform.OS == platform.OS && m.Platform.Architecture == platform.Architecture {
+		osMatch := m.Platform.OS == platform.OS
+		archMatch := m.Platform.Architecture == platform.Architecture
+		// When no variant is requested, accept any variant (picks first match)
+		variantMatch := platform.Variant == "" || m.Platform.Variant == platform.Variant
+		if osMatch && archMatch && variantMatch {
 			return c.getManifestByDigest(ref, m.Digest)
 		}
+	}
+	if platform.Variant != "" {
+		return nil, fmt.Errorf("no manifest found for platform %s/%s/%s", platform.OS, platform.Architecture, platform.Variant)
 	}
 	return nil, fmt.Errorf("no manifest found for platform %s/%s", platform.OS, platform.Architecture)
 }

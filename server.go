@@ -160,7 +160,7 @@ func (s *Server) imageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("Downloading image: %s (%s/%s)\n", imageName, platform.OS, platform.Architecture)
-	sfKey := fmt.Sprintf("%s_%s_%s", imageName, platform.OS, platform.Architecture)
+	sfKey := fmt.Sprintf("%s_%s_%s_%s", imageName, platform.OS, platform.Architecture, platform.Variant)
 	result, err, _ := s.downloadGroup.Do(sfKey, func() (interface{}, error) {
 		return DownloadImage(imageName, s.cache.Dir(), platform)
 	})
@@ -194,6 +194,9 @@ func (s *Server) platformsHandler(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Failed to get platforms for %s: %v\n", imageName, err)
 		writeJSONError(w, fmt.Sprintf("failed to get platforms: %v", err), http.StatusInternalServerError)
 		return
+	}
+	if platforms == nil {
+		platforms = []Platform{}
 	}
 
 	w.Header().Set(contentTypeHeader, "application/json")

@@ -620,12 +620,20 @@
                         ),
                     ];
 
-                    osSelect.innerHTML = osValues
-                        .map((o) => `<option value="${o}">${o}</option>`)
-                        .join("");
-                    archSelect.innerHTML = archValues
-                        .map((a) => `<option value="${a}">${a}</option>`)
-                        .join("");
+                    osSelect.innerHTML = "";
+                    osValues.forEach((o) => {
+                        const opt = document.createElement("option");
+                        opt.value = o;
+                        opt.textContent = o;
+                        osSelect.appendChild(opt);
+                    });
+                    archSelect.innerHTML = "";
+                    archValues.forEach((a) => {
+                        const opt = document.createElement("option");
+                        opt.value = a;
+                        opt.textContent = a;
+                        archSelect.appendChild(opt);
+                    });
 
                     detectedForImage = imageName;
                     platformRow.classList.add("visible");

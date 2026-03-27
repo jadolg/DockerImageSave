@@ -165,7 +165,11 @@ func createOutputTar(ref ImageReference, tempDir, outputDir string, platform Pla
 	safeTag := sanitizeFilenameComponent(ref.Tag)
 	safeOS := sanitizeFilenameComponent(platform.OS)
 	safeArch := sanitizeFilenameComponent(platform.Architecture)
-	outputPath := filepath.Join(outputDir, fmt.Sprintf("%s_%s_%s_%s.tar.gz", safeImageName, safeTag, safeOS, safeArch))
+	nameParts := []string{safeImageName, safeTag, safeOS, safeArch}
+	if platform.Variant != "" {
+		nameParts = append(nameParts, sanitizeFilenameComponent(platform.Variant))
+	}
+	outputPath := filepath.Join(outputDir, strings.Join(nameParts, "_")+".tar.gz")
 
 	log.Println("Creating tar archive...")
 	if err := createTar(tempDir, outputPath); err != nil {

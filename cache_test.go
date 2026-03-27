@@ -77,6 +77,11 @@ func TestGetCacheFilename(t *testing.T) {
 			platform:  Platform{OS: "linux", Architecture: "amd64"},
 			expected:  "username_repo_v1.2.3_linux_amd64.tar.gz",
 		},
+		{
+			imageName: "alpine:latest",
+			platform:  Platform{OS: "linux", Architecture: "arm", Variant: "v7"},
+			expected:  "library_alpine_latest_linux_arm_v7.tar.gz",
+		},
 	}
 
 	for _, tt := range tests {
