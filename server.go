@@ -206,11 +206,14 @@ func humanizeBytes(bytes int64) string {
 	if bytes < unit {
 		return fmt.Sprintf("%d B", bytes)
 	}
+	units := []string{"KB", "MB", "GB", "TB", "PB"}
 	div, exp := int64(unit), 0
 	for n := bytes / unit; n >= unit; n /= unit {
 		div *= unit
 		exp++
+		if exp >= len(units)-1 {
+			break
+		}
 	}
-	units := []string{"KB", "MB", "GB", "TB", "PB"}
 	return fmt.Sprintf("%.2f %s", float64(bytes)/float64(div), units[exp])
 }
