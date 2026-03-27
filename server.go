@@ -154,12 +154,12 @@ func (s *Server) imageHandler(w http.ResponseWriter, r *http.Request) {
 	cachePath := s.cache.GetCachePath(imageName, platform)
 
 	if _, err := os.Stat(cachePath); err == nil {
-		log.Printf("Serving cached image: %s (%s/%s)\n", imageName, platform.OS, platform.Architecture)
+		log.Printf("Serving cached image: %s (%s)\n", imageName, platform)
 		s.serveImageFile(w, r, cachePath, imageName, platform)
 		return
 	}
 
-	log.Printf("Downloading image: %s (%s/%s)\n", imageName, platform.OS, platform.Architecture)
+	log.Printf("Downloading image: %s (%s)\n", imageName, platform)
 	sfKey := fmt.Sprintf("%s_%s_%s_%s", imageName, platform.OS, platform.Architecture, platform.Variant)
 	result, err, _ := s.downloadGroup.Do(sfKey, func() (interface{}, error) {
 		return DownloadImage(imageName, s.cache.Dir(), platform)
@@ -242,7 +242,7 @@ func (s *Server) serveImageFile(w http.ResponseWriter, r *http.Request, imagePat
 
 	http.ServeContent(w, r, filename, fileInfo.ModTime(), file)
 
-	log.Printf("Served image: %s (%s)\n", imageName, humanizeBytes(fileInfo.Size()))
+	log.Printf("Served image: %s (%s, %s)\n", imageName, platform, humanizeBytes(fileInfo.Size()))
 	pullsCountMetric.Inc()
 }
 

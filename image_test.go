@@ -322,3 +322,40 @@ func TestDownloadImage_NonExistentPlatform(t *testing.T) {
 		})
 	}
 }
+
+func TestGetImagePlatforms_MultiArch(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	platforms, err := GetImagePlatforms("ubuntu:latest")
+	if err != nil {
+		t.Fatalf("GetImagePlatforms failed: %v", err)
+	}
+	if len(platforms) == 0 {
+		t.Fatal("expected at least one platform for ubuntu:latest, got none")
+	}
+
+	// ubuntu:latest is a well-known multi-arch image; linux/amd64 must be present
+	found := false
+	for _, p := range platforms {
+		if p.OS == "linux" && p.Architecture == "amd64" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected linux/amd64 in platforms, got: %+v", platforms)
+	}
+}
+
+func TestGetImagePlatforms_InvalidImage(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	_, err := GetImagePlatforms("thisimagedoesnotexist12345:nonexistenttag")
+	if err == nil {
+		t.Error("expected error for non-existent image")
+	}
+}

@@ -57,6 +57,14 @@ func DefaultPlatform() Platform {
 	return Platform{OS: "linux", Architecture: "amd64"}
 }
 
+// String returns the platform as "os/arch" or "os/arch/variant".
+func (p Platform) String() string {
+	if p.Variant != "" {
+		return p.OS + "/" + p.Architecture + "/" + p.Variant
+	}
+	return p.OS + "/" + p.Architecture
+}
+
 // ManifestList represents a multi-platform manifest list
 type ManifestList struct {
 	SchemaVersion int    `json:"schemaVersion"`
@@ -285,10 +293,6 @@ func (c *RegistryClient) parseManifestResponse(ref ImageReference, contentType s
 // GetPlatforms returns the list of available platforms for a multi-arch image.
 // Returns nil, nil if the image is single-arch.
 func (c *RegistryClient) GetPlatforms(ref ImageReference) ([]Platform, error) {
-	if err := ValidateImageReference(ref); err != nil {
-		return nil, fmt.Errorf("invalid image reference: %w", err)
-	}
-
 	resp, err := c.fetchManifestResponse(ref, ref.Tag)
 	if err != nil {
 		return nil, err

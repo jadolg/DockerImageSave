@@ -26,7 +26,7 @@ func authenticateClient(ref ImageReference) (*RegistryClient, error) {
 
 // fetchManifest retrieves the manifest for the image for the given platform
 func fetchManifest(client *RegistryClient, ref ImageReference, platform Platform) (*ManifestV2, error) {
-	log.Printf("Fetching manifest for %s:%s (platform: %s/%s)...\n", ref.Repository, ref.Tag, platform.OS, platform.Architecture)
+	log.Printf("Fetching manifest for %s:%s (platform: %s)...\n", ref.Repository, ref.Tag, platform)
 	manifest, err := client.getManifest(ref, platform)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get manifest: %w", err)
@@ -170,15 +170,7 @@ func createOutputTar(ref ImageReference, tempDir, outputDir string, platform Pla
 		return "", err
 	}
 
-	safeImageName := sanitizeFilenameComponent(ref.Repository)
-	safeTag := sanitizeFilenameComponent(ref.Tag)
-	safeOS := sanitizeFilenameComponent(platform.OS)
-	safeArch := sanitizeFilenameComponent(platform.Architecture)
-	nameParts := []string{safeImageName, safeTag, safeOS, safeArch}
-	if platform.Variant != "" {
-		nameParts = append(nameParts, sanitizeFilenameComponent(platform.Variant))
-	}
-	outputPath := filepath.Join(outputDir, strings.Join(nameParts, "_")+".tar.gz")
+	outputPath := filepath.Join(outputDir, imageFilename(ref, platform))
 
 	log.Println("Creating tar archive...")
 	if err := createTar(tempDir, outputPath); err != nil {
