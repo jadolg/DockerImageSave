@@ -24,10 +24,10 @@ func authenticateClient(ref ImageReference) (*RegistryClient, error) {
 	return client, nil
 }
 
-// fetchManifest retrieves the manifest for the image
-func fetchManifest(client *RegistryClient, ref ImageReference) (*ManifestV2, error) {
-	log.Printf("Fetching manifest for %s:%s...\n", ref.Repository, ref.Tag)
-	manifest, err := client.getManifest(ref)
+// fetchManifest retrieves the manifest for the image for the given platform
+func fetchManifest(client *RegistryClient, ref ImageReference, platform Platform) (*ManifestV2, error) {
+	log.Printf("Fetching manifest for %s:%s (platform: %s)...\n", ref.Repository, ref.Tag, platform)
+	manifest, err := client.getManifest(ref, platform)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get manifest: %w", err)
 	}
@@ -99,11 +99,7 @@ func createLayerMetadata(layerDir, diffID string, index int, imageConfig *ImageC
 		layerJSON["parent"] = prevDiffID
 	}
 
-	layerJSONBytes, err := json.Marshal(layerJSON)
-	if err != nil {
-		return fmt.Errorf("failed to marshal layer JSON: %w", err)
-	}
-	return os.WriteFile(filepath.Join(layerDir, "json"), layerJSONBytes, 0644)
+	return marshalJSONToFile(layerJSON, layerDir, "json")
 }
 
 // downloadAllLayers downloads all layers and returns their diff IDs
@@ -141,11 +137,7 @@ func createDockerManifest(ref ImageReference, configDigest string, layerPaths []
 		},
 	}
 
-	manifestJSONBytes, err := json.Marshal(manifestJSON)
-	if err != nil {
-		return fmt.Errorf("failed to marshal manifest JSON: %w", err)
-	}
-	return os.WriteFile(filepath.Join(tempDir, "manifest.json"), manifestJSONBytes, 0644)
+	return marshalJSONToFile(manifestJSON, tempDir, "manifest.json")
 }
 
 // createRepositoriesFile creates the repositories file for docker load
@@ -157,22 +149,23 @@ func createRepositoriesFile(ref ImageReference, layerPaths []string, tempDir str
 		imageName: {ref.Tag: topLayer},
 	}
 
-	reposBytes, err := json.Marshal(repositories)
-	if err != nil {
-		return fmt.Errorf("failed to marshal repositories JSON: %w", err)
-	}
-	return os.WriteFile(filepath.Join(tempDir, "repositories"), reposBytes, 0644)
+	return marshalJSONToFile(repositories, tempDir, "repositories")
 }
 
 // createOutputTar creates the final tar archive
-func createOutputTar(ref ImageReference, tempDir, outputDir string) (string, error) {
+func createOutputTar(ref ImageReference, tempDir, outputDir string, platform Platform) (string, error) {
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return "", err
 	}
 
-	safeImageName := sanitizeFilenameComponent(ref.Repository)
-	safeTag := sanitizeFilenameComponent(ref.Tag)
-	outputPath := filepath.Join(outputDir, fmt.Sprintf("%s_%s.tar.gz", safeImageName, safeTag))
+	outputPath := filepath.Join(outputDir, imageFilename(ref, platform))
+
+	// Defense-in-depth: confirm the assembled path stays within the output directory.
+	cleanOut := filepath.Clean(outputDir)
+	cleanPath := filepath.Clean(outputPath)
+	if !strings.HasPrefix(cleanPath, cleanOut+string(filepath.Separator)) {
+		return "", fmt.Errorf("output path escapes cache directory: %s", cleanPath)
+	}
 
 	log.Println("Creating tar archive...")
 	if err := createTar(tempDir, outputPath); err != nil {
@@ -184,7 +177,7 @@ func createOutputTar(ref ImageReference, tempDir, outputDir string) (string, err
 }
 
 // DownloadImage downloads a Docker image and saves it as a tar file
-func DownloadImage(imageRef string, outputDir string) (string, error) {
+func DownloadImage(imageRef string, outputDir string, platform Platform) (string, error) {
 	ref := ParseImageReference(imageRef)
 
 	// Validate the image reference to prevent SSRF and other attacks
@@ -197,7 +190,7 @@ func DownloadImage(imageRef string, outputDir string) (string, error) {
 		return "", err
 	}
 
-	manifest, err := fetchManifest(client, ref)
+	manifest, err := fetchManifest(client, ref, platform)
 	if err != nil {
 		return "", err
 	}
@@ -230,5 +223,31 @@ func DownloadImage(imageRef string, outputDir string) (string, error) {
 		return "", err
 	}
 
-	return createOutputTar(ref, tempDir, outputDir)
+	return createOutputTar(ref, tempDir, outputDir, platform)
+}
+
+// GetImagePlatforms returns the available platforms for a multi-arch image.
+// Returns nil, nil if the image is single-arch.
+func GetImagePlatforms(imageRef string) ([]Platform, error) {
+	ref := ParseImageReference(imageRef)
+
+	if err := ValidateImageReference(ref); err != nil {
+		return nil, fmt.Errorf("invalid image reference: %w", err)
+	}
+
+	client, err := authenticateClient(ref)
+	if err != nil {
+		return nil, err
+	}
+
+	return client.GetPlatforms(ref)
+}
+
+// marshalJSONToFile marshals v to JSON and writes it to dir/filename.
+func marshalJSONToFile(v interface{}, dir, filename string) error {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return fmt.Errorf("failed to marshal %s: %w", filename, err)
+	}
+	return os.WriteFile(filepath.Join(dir, filename), data, 0644)
 }

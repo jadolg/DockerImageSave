@@ -715,6 +715,62 @@ func TestSanitizeFilenameComponent(t *testing.T) {
 	}
 }
 
+func TestValidatePlatformParam(t *testing.T) {
+	tests := []struct {
+		name    string
+		param   string
+		value   string
+		wantErr bool
+		errMsg  string
+	}{
+		// Valid values
+		{name: "valid os linux", param: "os", value: "linux", wantErr: false},
+		{name: "valid os windows", param: "os", value: "windows", wantErr: false},
+		{name: "valid arch amd64", param: "arch", value: "amd64", wantErr: false},
+		{name: "valid arch arm64", param: "arch", value: "arm64", wantErr: false},
+		{name: "valid arch arm", param: "arch", value: "arm", wantErr: false},
+		{name: "valid variant v7", param: "variant", value: "v7", wantErr: false},
+		{name: "valid variant v6", param: "variant", value: "v6", wantErr: false},
+		{name: "invalid slash in arch", param: "arch", value: "arm/v7", wantErr: true, errMsg: "invalid arch parameter"},
+		{name: "valid with hyphen", param: "os", value: "linux-musl", wantErr: false},
+		{name: "valid with underscore", param: "arch", value: "arm_v7", wantErr: false},
+
+		// Empty is allowed (no-op)
+		{name: "empty value", param: "os", value: "", wantErr: false},
+
+		// Too long
+		{name: "too long", param: "os", value: strings.Repeat("a", 65), wantErr: true, errMsg: "parameter too long"},
+
+		// Invalid characters
+		{name: "invalid uppercase", param: "os", value: "Linux", wantErr: true, errMsg: "invalid os parameter"},
+		{name: "invalid special chars", param: "arch", value: "amd64!", wantErr: true, errMsg: "invalid arch parameter"},
+		{name: "invalid spaces", param: "os", value: "linux musl", wantErr: true, errMsg: "invalid os parameter"},
+		{name: "invalid dots", param: "variant", value: "v7.1", wantErr: true, errMsg: "invalid variant parameter"},
+		{name: "invalid starts with hyphen", param: "os", value: "-linux", wantErr: true, errMsg: "invalid os parameter"},
+		{name: "invalid starts with slash", param: "arch", value: "/arm", wantErr: true, errMsg: "invalid arch parameter"},
+		{name: "invalid html injection", param: "os", value: "<script>", wantErr: true, errMsg: "invalid os parameter"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validatePlatformParam(tt.param, tt.value)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("validatePlatformParam(%q, %q) expected error containing %q, got nil", tt.param, tt.value, tt.errMsg)
+					return
+				}
+				if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("validatePlatformParam(%q, %q) error = %q, want error containing %q", tt.param, tt.value, err.Error(), tt.errMsg)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("validatePlatformParam(%q, %q) unexpected error: %v", tt.param, tt.value, err)
+				}
+			}
+		})
+	}
+}
+
 // Benchmark tests
 func BenchmarkValidateRegistry(b *testing.B) {
 	for i := 0; i < b.N; i++ {

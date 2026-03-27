@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -86,16 +87,27 @@ func (c *CacheManager) PerformCleanup() {
 }
 
 // GetCachePath returns the full path for a cached image
-func (c *CacheManager) GetCachePath(imageName string) string {
-	return filepath.Join(c.dir, c.GetCacheFilename(imageName))
+func (c *CacheManager) GetCachePath(imageName string, platform Platform) string {
+	return filepath.Join(c.dir, c.GetCacheFilename(imageName, platform))
 }
 
 // GetCacheFilename generates a safe filename for caching
-func (c *CacheManager) GetCacheFilename(imageName string) string {
-	ref := ParseImageReference(imageName)
-	safeImageName := sanitizeFilenameComponent(ref.Repository)
-	safeTag := sanitizeFilenameComponent(ref.Tag)
-	return fmt.Sprintf("%s_%s.tar.gz", safeImageName, safeTag)
+func (c *CacheManager) GetCacheFilename(imageName string, platform Platform) string {
+	return imageFilename(ParseImageReference(imageName), platform)
+}
+
+// imageFilename builds the platform-qualified tar filename for an image reference.
+func imageFilename(ref ImageReference, platform Platform) string {
+	parts := []string{
+		sanitizeFilenameComponent(ref.Repository),
+		sanitizeFilenameComponent(ref.Tag),
+		sanitizeFilenameComponent(platform.OS),
+		sanitizeFilenameComponent(platform.Architecture),
+	}
+	if platform.Variant != "" {
+		parts = append(parts, sanitizeFilenameComponent(platform.Variant))
+	}
+	return strings.Join(parts, "_") + ".tar.gz"
 }
 
 // Dir returns the cache directory path

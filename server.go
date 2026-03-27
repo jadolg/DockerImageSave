@@ -52,6 +52,7 @@ func (s *Server) Start(ctx context.Context) (*http.Server, error) {
 	mux.HandleFunc("GET /{$}", s.homeHandler)
 	mux.HandleFunc("GET /health", s.healthHandler)
 	mux.HandleFunc("GET /image", s.imageHandler)
+	mux.HandleFunc("GET /platforms", s.platformsHandler)
 	mux.HandleFunc("GET /logo.png", s.logoHandler)
 	mux.Handle("GET /metrics", promhttp.Handler())
 
@@ -114,30 +115,28 @@ func (s *Server) logoHandler(w http.ResponseWriter, _ *http.Request) {
 
 // imageHandler handles the /image endpoint
 func (s *Server) imageHandler(w http.ResponseWriter, r *http.Request) {
-
-	imageName := r.URL.Query().Get("name")
-	if imageName == "" {
-		writeJSONError(w, "missing required 'name' query parameter", http.StatusBadRequest)
+	imageName, ok := extractImageName(w, r)
+	if !ok {
 		return
 	}
 
-	imageName, err := sanitizeImageName(imageName)
-	if err != nil {
-		writeJSONError(w, fmt.Sprintf("invalid image name: %v", err), http.StatusBadRequest)
+	platform, ok := platformFromRequest(w, r)
+	if !ok {
 		return
 	}
 
-	cachePath := s.cache.GetCachePath(imageName)
+	cachePath := s.cache.GetCachePath(imageName, platform)
 
 	if _, err := os.Stat(cachePath); err == nil {
-		log.Printf("Serving cached image: %s\n", imageName)
-		s.serveImageFile(w, r, cachePath, imageName)
+		log.Printf("Serving cached image: %s (%s)\n", imageName, platform)
+		s.serveImageFile(w, r, cachePath, imageName, platform)
 		return
 	}
 
-	log.Printf("Downloading image: %s\n", imageName)
-	result, err, _ := s.downloadGroup.Do(imageName, func() (interface{}, error) {
-		return DownloadImage(imageName, s.cache.Dir())
+	log.Printf("Downloading image: %s (%s)\n", imageName, platform)
+	sfKey := imageName + "_" + platform.String()
+	result, err, _ := s.downloadGroup.Do(sfKey, func() (interface{}, error) {
+		return DownloadImage(imageName, s.cache.Dir(), platform)
 	})
 	if err != nil {
 		log.Printf("Failed to download image %s: %v\n", imageName, err)
@@ -147,11 +146,70 @@ func (s *Server) imageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	imagePath := result.(string)
 
-	s.serveImageFile(w, r, imagePath, imageName)
+	s.serveImageFile(w, r, imagePath, imageName, platform)
+}
+
+// platformsHandler handles the /platforms endpoint
+func (s *Server) platformsHandler(w http.ResponseWriter, r *http.Request) {
+	imageName, ok := extractImageName(w, r)
+	if !ok {
+		return
+	}
+
+	platforms, err := GetImagePlatforms(imageName)
+	if err != nil {
+		log.Printf("Failed to get platforms for %s: %v\n", imageName, err)
+		writeJSONError(w, fmt.Sprintf("failed to get platforms: %v", err), http.StatusInternalServerError)
+		return
+	}
+	if platforms == nil {
+		platforms = []Platform{}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{"platforms": platforms})
+}
+
+// extractImageName reads and sanitizes the "name" query parameter, writing an
+// error response and returning false if it is missing or invalid.
+func extractImageName(w http.ResponseWriter, r *http.Request) (string, bool) {
+	imageName := r.URL.Query().Get("name")
+	if imageName == "" {
+		writeJSONError(w, "missing required 'name' query parameter", http.StatusBadRequest)
+		return "", false
+	}
+	imageName, err := sanitizeImageName(imageName)
+	if err != nil {
+		writeJSONError(w, fmt.Sprintf("invalid image name: %v", err), http.StatusBadRequest)
+		return "", false
+	}
+	return imageName, true
+}
+
+// platformFromRequest parses and validates the os/arch/variant query parameters,
+// writing an error response and returning false if any value is invalid.
+func platformFromRequest(w http.ResponseWriter, r *http.Request) (Platform, bool) {
+	platform := DefaultPlatform()
+	for _, field := range []struct {
+		param string
+		dest  *string
+	}{
+		{"os", &platform.OS},
+		{"arch", &platform.Architecture},
+		{"variant", &platform.Variant},
+	} {
+		if val := r.URL.Query().Get(field.param); val != "" {
+			if err := validatePlatformParam(field.param, val); err != nil {
+				writeJSONError(w, err.Error(), http.StatusBadRequest)
+				return Platform{}, false
+			}
+			*field.dest = val
+		}
+	}
+	return platform, true
 }
 
 // serveImageFile streams an image tar file to the response with Range request support
-func (s *Server) serveImageFile(w http.ResponseWriter, r *http.Request, imagePath, imageName string) {
+func (s *Server) serveImageFile(w http.ResponseWriter, r *http.Request, imagePath, imageName string, platform Platform) {
 	file, err := os.Open(imagePath)
 	if err != nil {
 		log.Printf("Failed to open image file: %v\n", err)
@@ -178,26 +236,29 @@ func (s *Server) serveImageFile(w http.ResponseWriter, r *http.Request, imagePat
 		return
 	}
 
-	filename := s.cache.GetCacheFilename(imageName)
+	filename := s.cache.GetCacheFilename(imageName, platform)
 
 	w.Header().Set(contentTypeHeader, "application/gzip")
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
 
 	http.ServeContent(w, r, filename, fileInfo.ModTime(), file)
 
-	log.Printf("Served image: %s (%s)\n", imageName, humanizeBytes(fileInfo.Size()))
+	log.Printf("Served image: %s (%s, %s)\n", imageName, platform, humanizeBytes(fileInfo.Size()))
 	pullsCountMetric.Inc()
 }
 
-// writeJSONError writes a JSON error response
-func writeJSONError(w http.ResponseWriter, message string, statusCode int) {
+// writeJSON writes a JSON response with the given status code.
+func writeJSON(w http.ResponseWriter, statusCode int, v interface{}) {
 	w.Header().Set(contentTypeHeader, "application/json")
 	w.WriteHeader(statusCode)
-	err := json.NewEncoder(w).Encode(map[string]string{"error": message})
-	if err != nil {
-		errorsTotalMetric.Inc()
-		log.Printf("Failed to write JSON error response: %v\n", err)
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		log.Printf("Failed to write JSON response: %v\n", err)
 	}
+}
+
+// writeJSONError writes a JSON error response.
+func writeJSONError(w http.ResponseWriter, message string, statusCode int) {
+	writeJSON(w, statusCode, map[string]string{"error": message})
 }
 
 // humanizeBytes converts bytes to a human-readable format

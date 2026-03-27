@@ -14,6 +14,7 @@ import (
 
 const bearerPrefix = "Bearer "
 const responseBodyStr = "response body"
+const invalidImageReferenceFormat = "invalid image reference: %w"
 
 // ImageReference represents a parsed Docker image reference
 type ImageReference struct {
@@ -45,6 +46,26 @@ type ManifestV2 struct {
 	} `json:"layers"`
 }
 
+// Platform represents a target OS/architecture combination
+type Platform struct {
+	OS           string `json:"os"`
+	Architecture string `json:"architecture"`
+	Variant      string `json:"variant,omitempty"`
+}
+
+// DefaultPlatform returns the default platform (linux/amd64)
+func DefaultPlatform() Platform {
+	return Platform{OS: "linux", Architecture: "amd64"}
+}
+
+// String returns the platform as "os/arch" or "os/arch/variant".
+func (p Platform) String() string {
+	if p.Variant != "" {
+		return p.OS + "/" + p.Architecture + "/" + p.Variant
+	}
+	return p.OS + "/" + p.Architecture
+}
+
 // ManifestList represents a multi-platform manifest list
 type ManifestList struct {
 	SchemaVersion int    `json:"schemaVersion"`
@@ -56,6 +77,7 @@ type ManifestList struct {
 		Platform  struct {
 			Architecture string `json:"architecture"`
 			OS           string `json:"os"`
+			Variant      string `json:"variant"`
 		} `json:"platform"`
 	} `json:"manifests"`
 }
@@ -112,14 +134,13 @@ func NewRegistryClient() *RegistryClient {
 // Authenticate obtains a token for the given image
 func (c *RegistryClient) Authenticate(ref ImageReference) error {
 	if err := ValidateImageReference(ref); err != nil {
-		return fmt.Errorf("invalid image reference: %w", err)
+		return fmt.Errorf(invalidImageReferenceFormat, err)
 	}
 
 	creds, hasCredentials := GetCredentials(ref.Registry)
+	c.username = "anonymous"
 	if hasCredentials {
 		c.username = creds.Username
-	} else {
-		c.username = "anonymous"
 	}
 
 	registryURL, err := buildRegistryURL(ref.Registry, "/v2/")
@@ -132,11 +153,12 @@ func (c *RegistryClient) Authenticate(ref ImageReference) error {
 	}
 	defer closeWithLog(resp.Body, responseBodyStr)
 
-	if resp.StatusCode == http.StatusOK {
+	switch resp.StatusCode {
+	case http.StatusOK:
 		return nil // No auth required
-	}
-
-	if resp.StatusCode != http.StatusUnauthorized {
+	case http.StatusUnauthorized:
+		// continue to token exchange below
+	default:
 		return fmt.Errorf("unexpected status: %d", resp.StatusCode)
 	}
 
@@ -147,7 +169,20 @@ func (c *RegistryClient) Authenticate(ref ImageReference) error {
 
 	realm, service, scope := parseAuthHeader(authHeader, ref.Repository)
 
-	// Validate the realm URL to prevent SSRF
+	if err := validateAuthRealm(realm); err != nil {
+		return err
+	}
+
+	token, err := c.fetchToken(realm, service, scope, creds, hasCredentials)
+	if err != nil {
+		return err
+	}
+	c.token = token
+	return nil
+}
+
+// validateAuthRealm checks that the token realm URL is safe to contact (SSRF protection).
+func validateAuthRealm(realm string) error {
 	parsedRealm, err := url.Parse(realm)
 	if err != nil {
 		return fmt.Errorf("invalid auth realm URL: %w", err)
@@ -155,32 +190,34 @@ func (c *RegistryClient) Authenticate(ref ImageReference) error {
 	if parsedRealm.Scheme != "https" && parsedRealm.Scheme != "http" {
 		return fmt.Errorf("invalid auth realm scheme: %s", parsedRealm.Scheme)
 	}
-	// Validate the realm host to prevent SSRF to internal/private networks
 	if err := validateRegistry(parsedRealm.Host); err != nil {
 		return fmt.Errorf("invalid auth realm host: %w", err)
 	}
+	return nil
+}
 
+// fetchToken requests a Bearer token from the auth realm and returns it.
+func (c *RegistryClient) fetchToken(realm, service, scope string, creds RegistryCredentials, hasCredentials bool) (string, error) {
 	tokenURL := fmt.Sprintf("%s?service=%s&scope=%s", realm, url.QueryEscape(service), url.QueryEscape(scope))
 
 	req, err := http.NewRequest("GET", tokenURL, nil)
 	if err != nil {
-		return err
+		return "", err
 	}
-
 	if hasCredentials {
 		auth := base64.StdEncoding.EncodeToString([]byte(creds.Username + ":" + creds.Password))
 		req.Header.Set("Authorization", "Basic "+auth)
 	}
 
-	resp, err = c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer closeWithLog(resp.Body, responseBodyStr)
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return fmt.Errorf("authentication failed: %d - %s", resp.StatusCode, string(body))
+		return "", fmt.Errorf("authentication failed: %d - %s", resp.StatusCode, string(body))
 	}
 
 	var tokenResp struct {
@@ -188,15 +225,14 @@ func (c *RegistryClient) Authenticate(ref ImageReference) error {
 		AccessToken string `json:"access_token"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
-		return err
+		return "", err
 	}
 
-	c.token = tokenResp.Token
-	if c.token == "" {
-		c.token = tokenResp.AccessToken
+	token := tokenResp.Token
+	if token == "" {
+		token = tokenResp.AccessToken
 	}
-
-	return nil
+	return token, nil
 }
 
 // GetAuthenticatedUser returns the username used for authentication
@@ -235,27 +271,34 @@ func isManifestList(contentType string) bool {
 	return strings.Contains(contentType, "manifest.list") || strings.Contains(contentType, "image.index")
 }
 
-// selectManifestDigest selects the best manifest from a manifest list, preferring linux/amd64
-func (c *RegistryClient) selectManifestDigest(ref ImageReference, list *ManifestList) (*ManifestV2, error) {
+// selectManifestDigest selects the manifest matching the given platform from a manifest list
+func (c *RegistryClient) selectManifestDigest(ref ImageReference, list *ManifestList, platform Platform) (*ManifestV2, error) {
 	for _, m := range list.Manifests {
-		if m.Platform.OS == "linux" && m.Platform.Architecture == "amd64" {
+		osMatch := m.Platform.OS == platform.OS
+		archMatch := m.Platform.Architecture == platform.Architecture
+		// When no variant is requested, accept any variant (picks first match)
+		variantMatch := platform.Variant == "" || m.Platform.Variant == platform.Variant
+		if osMatch && archMatch && variantMatch {
 			return c.getManifestByDigest(ref, m.Digest)
 		}
 	}
-	if len(list.Manifests) > 0 {
-		return c.getManifestByDigest(ref, list.Manifests[0].Digest)
+
+	available := make([]string, 0, len(list.Manifests))
+	for _, m := range list.Manifests {
+		p := Platform{OS: m.Platform.OS, Architecture: m.Platform.Architecture, Variant: m.Platform.Variant}
+		available = append(available, p.String())
 	}
-	return nil, fmt.Errorf("no suitable manifest found")
+	return nil, fmt.Errorf("no manifest found for platform %s; available: %s", platform, strings.Join(available, ", "))
 }
 
 // parseManifestResponse parses the manifest response body based on content type
-func (c *RegistryClient) parseManifestResponse(ref ImageReference, contentType string, body []byte) (*ManifestV2, error) {
+func (c *RegistryClient) parseManifestResponse(ref ImageReference, contentType string, body []byte, platform Platform) (*ManifestV2, error) {
 	if isManifestList(contentType) {
 		var list ManifestList
 		if err := json.Unmarshal(body, &list); err != nil {
 			return nil, err
 		}
-		return c.selectManifestDigest(ref, &list)
+		return c.selectManifestDigest(ref, &list, platform)
 	}
 
 	var manifest ManifestV2
@@ -263,6 +306,46 @@ func (c *RegistryClient) parseManifestResponse(ref ImageReference, contentType s
 		return nil, err
 	}
 	return &manifest, nil
+}
+
+// GetPlatforms returns the list of available platforms for a multi-arch image.
+// Returns nil, nil if the image is single-arch.
+func (c *RegistryClient) GetPlatforms(ref ImageReference) ([]Platform, error) {
+	resp, err := c.fetchManifestResponse(ref, ref.Tag)
+	if err != nil {
+		return nil, err
+	}
+	defer closeWithLog(resp.Body, responseBodyStr)
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to get manifest: %d - %s", resp.StatusCode, string(body))
+	}
+
+	contentType := resp.Header.Get("Content-Type")
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if !isManifestList(contentType) {
+		return nil, nil
+	}
+
+	var list ManifestList
+	if err := json.Unmarshal(body, &list); err != nil {
+		return nil, err
+	}
+
+	platforms := make([]Platform, 0, len(list.Manifests))
+	for _, m := range list.Manifests {
+		platforms = append(platforms, Platform{
+			OS:           m.Platform.OS,
+			Architecture: m.Platform.Architecture,
+			Variant:      m.Platform.Variant,
+		})
+	}
+	return platforms, nil
 }
 
 // doSafeRegistryRequest constructs a validated URL from registry components and executes an HTTP GET request.
@@ -305,19 +388,15 @@ func (c *RegistryClient) doSafeRegistryRequest(registry, pathFormat string, head
 // fetchManifestResponse fetches the raw manifest response from the registry.
 func (c *RegistryClient) fetchManifestResponse(ref ImageReference, reference string) (*http.Response, error) {
 	if err := ValidateImageReference(ref); err != nil {
-		return nil, fmt.Errorf("invalid image reference: %w", err)
+		return nil, fmt.Errorf(invalidImageReferenceFormat, err)
 	}
 
 	headers := map[string]string{"Accept": manifestAcceptHeader}
 	return c.doSafeRegistryRequest(ref.Registry, "/v2/%s/manifests/%s", headers, ref.Repository, reference)
 }
 
-// getManifest retrieves the image manifest
-func (c *RegistryClient) getManifest(ref ImageReference) (*ManifestV2, error) {
-	if err := ValidateImageReference(ref); err != nil {
-		return nil, fmt.Errorf("invalid image reference: %w", err)
-	}
-
+// getManifest retrieves the image manifest for the given platform
+func (c *RegistryClient) getManifest(ref ImageReference, platform Platform) (*ManifestV2, error) {
 	resp, err := c.fetchManifestResponse(ref, ref.Tag)
 	if err != nil {
 		return nil, err
@@ -335,12 +414,12 @@ func (c *RegistryClient) getManifest(ref ImageReference) (*ManifestV2, error) {
 		return nil, err
 	}
 
-	return c.parseManifestResponse(ref, contentType, body)
+	return c.parseManifestResponse(ref, contentType, body, platform)
 }
 
 func (c *RegistryClient) getManifestByDigest(ref ImageReference, digest string) (*ManifestV2, error) {
 	if err := ValidateImageReference(ref); err != nil {
-		return nil, fmt.Errorf("invalid image reference: %w", err)
+		return nil, fmt.Errorf(invalidImageReferenceFormat, err)
 	}
 
 	if err := validateDigest(digest); err != nil {
@@ -371,7 +450,7 @@ func (c *RegistryClient) getManifestByDigest(ref ImageReference, digest string) 
 // DownloadBlob downloads a blob to a file
 func (c *RegistryClient) DownloadBlob(ref ImageReference, digest, destPath string) error {
 	if err := ValidateImageReference(ref); err != nil {
-		return fmt.Errorf("invalid image reference: %w", err)
+		return fmt.Errorf(invalidImageReferenceFormat, err)
 	}
 
 	if err := validateDigest(digest); err != nil {

@@ -219,7 +219,7 @@ func TestDownloadImage_PublicImage(t *testing.T) {
 	}
 	defer cleanupTempDir(t, outputDir)
 
-	imagePath, err := DownloadImage("alpine:latest", outputDir)
+	imagePath, err := DownloadImage("alpine:latest", outputDir, DefaultPlatform())
 	if err != nil {
 		t.Fatalf("DownloadImage failed: %v", err)
 	}
@@ -248,7 +248,7 @@ func TestDownloadImage_WithAuthentication(t *testing.T) {
 	}
 	defer cleanupTempDir(t, outputDir)
 
-	imagePath, err := DownloadImage("busybox:latest", outputDir)
+	imagePath, err := DownloadImage("busybox:latest", outputDir, DefaultPlatform())
 	if err != nil {
 		t.Fatalf("DownloadImage with auth failed: %v", err)
 	}
@@ -269,7 +269,92 @@ func TestDownloadImage_NonExistentImage(t *testing.T) {
 	}
 	defer cleanupTempDir(t, outputDir)
 
-	_, err = DownloadImage("thisimagedoesnotexist12345:nonexistenttag", outputDir)
+	_, err = DownloadImage("thisimagedoesnotexist12345:nonexistenttag", outputDir, DefaultPlatform())
+	if err == nil {
+		t.Error("expected error for non-existent image")
+	}
+}
+
+func TestDownloadImage_NonExistentPlatform(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	tests := []struct {
+		name     string
+		image    string
+		platform Platform
+	}{
+		{
+			name:     "windows image on unsupported arch",
+			image:    "alpine:latest",
+			platform: Platform{OS: "windows", Architecture: "amd64"},
+		},
+		{
+			name:     "nonexistent OS",
+			image:    "alpine:latest",
+			platform: Platform{OS: "solaris", Architecture: "amd64"},
+		},
+		{
+			name:     "nonexistent arch",
+			image:    "alpine:latest",
+			platform: Platform{OS: "linux", Architecture: "mips64"},
+		},
+		{
+			name:     "nonexistent variant",
+			image:    "alpine:latest",
+			platform: Platform{OS: "linux", Architecture: "arm", Variant: "v5"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			outputDir, err := os.MkdirTemp("", "test-download-badplatform-*")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer cleanupTempDir(t, outputDir)
+
+			_, err = DownloadImage(tt.image, outputDir, tt.platform)
+			if err == nil {
+				t.Errorf("expected error for unsupported platform %s/%s/%s", tt.platform.OS, tt.platform.Architecture, tt.platform.Variant)
+			}
+		})
+	}
+}
+
+func TestGetImagePlatforms_MultiArch(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	platforms, err := GetImagePlatforms("ubuntu:latest")
+	if err != nil {
+		t.Fatalf("GetImagePlatforms failed: %v", err)
+	}
+	if len(platforms) == 0 {
+		t.Fatal("expected at least one platform for ubuntu:latest, got none")
+	}
+
+	// ubuntu:latest is a well-known multi-arch image; linux/amd64 must be present
+	found := false
+	for _, p := range platforms {
+		if p.OS == "linux" && p.Architecture == "amd64" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected linux/amd64 in platforms, got: %+v", platforms)
+	}
+}
+
+func TestGetImagePlatforms_InvalidImage(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	_, err := GetImagePlatforms("thisimagedoesnotexist12345:nonexistenttag")
 	if err == nil {
 		t.Error("expected error for non-existent image")
 	}

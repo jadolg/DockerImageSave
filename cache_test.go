@@ -59,25 +59,34 @@ func TestGetCacheFilename(t *testing.T) {
 
 	tests := []struct {
 		imageName string
+		platform  Platform
 		expected  string
 	}{
 		{
 			imageName: "alpine:latest",
-			expected:  "library_alpine_latest.tar.gz",
+			platform:  Platform{OS: "linux", Architecture: "amd64"},
+			expected:  "library_alpine_latest_linux_amd64.tar.gz",
 		},
 		{
 			imageName: "library/ubuntu:20.04",
-			expected:  "library_ubuntu_20.04.tar.gz",
+			platform:  Platform{OS: "linux", Architecture: "arm64"},
+			expected:  "library_ubuntu_20.04_linux_arm64.tar.gz",
 		},
 		{
 			imageName: "ghcr.io/username/repo:v1.2.3",
-			expected:  "username_repo_v1.2.3.tar.gz",
+			platform:  Platform{OS: "linux", Architecture: "amd64"},
+			expected:  "username_repo_v1.2.3_linux_amd64.tar.gz",
+		},
+		{
+			imageName: "alpine:latest",
+			platform:  Platform{OS: "linux", Architecture: "arm", Variant: "v7"},
+			expected:  "library_alpine_latest_linux_arm_v7.tar.gz",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.imageName, func(t *testing.T) {
-			got := cache.GetCacheFilename(tt.imageName)
+			got := cache.GetCacheFilename(tt.imageName, tt.platform)
 			if got != tt.expected {
 				t.Errorf("GetCacheFilename(%q) = %q, want %q", tt.imageName, got, tt.expected)
 			}

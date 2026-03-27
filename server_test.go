@@ -168,7 +168,7 @@ func TestServeImageFile_RangeRequest(t *testing.T) {
 		req.Header.Set("Range", "bytes=0-9")
 		w := httptest.NewRecorder()
 
-		server.serveImageFile(w, req, testFile, "test:image")
+		server.serveImageFile(w, req, testFile, "test:image", DefaultPlatform())
 
 		resp := w.Result()
 		if resp.StatusCode != http.StatusPartialContent {
@@ -192,7 +192,7 @@ func TestServeImageFile_RangeRequest(t *testing.T) {
 		req.Header.Set("Range", "bytes=10-19")
 		w := httptest.NewRecorder()
 
-		server.serveImageFile(w, req, testFile, "test:image")
+		server.serveImageFile(w, req, testFile, "test:image", DefaultPlatform())
 
 		resp := w.Result()
 		if resp.StatusCode != http.StatusPartialContent {
@@ -217,13 +217,13 @@ func TestServeImageFile_RangeRequest(t *testing.T) {
 		req1 := httptest.NewRequest(http.MethodGet, "/image", nil)
 		req1.Header.Set("Range", "bytes=0-9")
 		w1 := httptest.NewRecorder()
-		server.serveImageFile(w1, req1, testFile, "test:image")
+		server.serveImageFile(w1, req1, testFile, "test:image", DefaultPlatform())
 		combined.Write(w1.Body.Bytes())
 
 		req2 := httptest.NewRequest(http.MethodGet, "/image", nil)
 		req2.Header.Set("Range", "bytes=10-")
 		w2 := httptest.NewRecorder()
-		server.serveImageFile(w2, req2, testFile, "test:image")
+		server.serveImageFile(w2, req2, testFile, "test:image", DefaultPlatform())
 		combined.Write(w2.Body.Bytes())
 
 		if !bytes.Equal(combined.Bytes(), testContent) {
@@ -236,7 +236,7 @@ func TestServeImageFile_RangeRequest(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/image", nil)
 		w := httptest.NewRecorder()
 
-		server.serveImageFile(w, req, testFile, "test:image")
+		server.serveImageFile(w, req, testFile, "test:image", DefaultPlatform())
 
 		resp := w.Result()
 		if resp.StatusCode != http.StatusOK {
@@ -275,7 +275,7 @@ func TestServeImageFile_InvalidRange(t *testing.T) {
 	req.Header.Set("Range", "bytes=100-200")
 	w := httptest.NewRecorder()
 
-	server.serveImageFile(w, req, testFile, "test:image")
+	server.serveImageFile(w, req, testFile, "test:image", DefaultPlatform())
 
 	resp := w.Result()
 	if resp.StatusCode != http.StatusRequestedRangeNotSatisfiable {
@@ -381,6 +381,106 @@ func TestHumanizeBytes_FormattingConsistency(t *testing.T) {
 	result := humanizeBytes(512)
 	if strings.Contains(result, ".") {
 		t.Errorf("humanizeBytes(512) = %s, expected no decimal point for byte values", result)
+	}
+}
+
+func TestPlatformsHandler_MissingName(t *testing.T) {
+	server := NewServer(":8080", "", 1*time.Hour)
+
+	req := httptest.NewRequest(http.MethodGet, "/platforms", nil)
+	w := httptest.NewRecorder()
+
+	server.platformsHandler(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("expected status 400, got %d", resp.StatusCode)
+	}
+
+	var body map[string]string
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if !strings.Contains(body["error"], "missing required 'name'") {
+		t.Errorf("expected missing name error, got %q", body["error"])
+	}
+}
+
+func TestPlatformsHandler_InvalidName(t *testing.T) {
+	server := NewServer(":8080", "", 1*time.Hour)
+
+	req := httptest.NewRequest(http.MethodGet, "/platforms?name=localhost:5000/myimage:latest", nil)
+	w := httptest.NewRecorder()
+
+	server.platformsHandler(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("expected status 400, got %d", resp.StatusCode)
+	}
+
+	var body map[string]string
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if body["error"] == "" {
+		t.Error("expected error message in response")
+	}
+}
+
+func TestImageHandler_InvalidPlatformParams(t *testing.T) {
+	server := NewServer(":8080", "", 1*time.Hour)
+
+	tests := []struct {
+		name    string
+		query   string
+		wantErr string
+	}{
+		{
+			name:    "invalid os param uppercase",
+			query:   "/image?name=alpine:latest&os=LINUX",
+			wantErr: "invalid os parameter",
+		},
+		{
+			name:    "invalid arch param special chars",
+			query:   "/image?name=alpine:latest&arch=amd64!",
+			wantErr: "invalid arch parameter",
+		},
+		{
+			name:    "invalid variant param",
+			query:   "/image?name=alpine:latest&variant=<script>",
+			wantErr: "invalid variant parameter",
+		},
+		{
+			name:    "os param too long",
+			query:   "/image?name=alpine:latest&os=" + strings.Repeat("a", 65),
+			wantErr: "os parameter too long",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, tt.query, nil)
+			w := httptest.NewRecorder()
+
+			server.imageHandler(w, req)
+
+			resp := w.Result()
+			if resp.StatusCode != http.StatusBadRequest {
+				t.Errorf("expected status 400, got %d", resp.StatusCode)
+			}
+
+			var body map[string]string
+			if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+				t.Fatalf("failed to decode response: %v", err)
+			}
+
+			if !strings.Contains(body["error"], tt.wantErr) {
+				t.Errorf("expected error containing %q, got %q", tt.wantErr, body["error"])
+			}
+		})
 	}
 }
 

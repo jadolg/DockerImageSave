@@ -60,3 +60,35 @@ wget --tries=5 --waitretry=3 -q -O - "https://dockerimagesave.akiel.dev/image?na
 ```bash
 wget -c --tries=5 --waitretry=3 --content-disposition "https://dockerimagesave.akiel.dev/image?name=ubuntu:25.04" && docker load -i ubuntu_25_04.tar
 ```
+
+#### Selecting a specific architecture
+
+By default the service downloads `linux/amd64`. Use the `os` and `arch` query parameters to select a different platform:
+
+```bash
+# Download linux/arm64
+wget -c --tries=5 --waitretry=3 --content-disposition \
+  "https://dockerimagesave.akiel.dev/image?name=ubuntu:25.04&os=linux&arch=arm64"
+
+# Download linux/arm/v7 (32-bit ARM)
+wget -c --tries=5 --waitretry=3 --content-disposition \
+  "https://dockerimagesave.akiel.dev/image?name=ubuntu:25.04&os=linux&arch=arm&variant=v7"
+```
+
+#### Listing available platforms for an image
+
+```bash
+curl "https://dockerimagesave.akiel.dev/platforms?name=ubuntu:25.04"
+```
+
+Returns JSON like:
+
+```json
+{
+  "platforms": [
+    {"os": "linux", "architecture": "amd64"},
+    {"os": "linux", "architecture": "arm64"},
+    {"os": "linux", "architecture": "arm", "variant": "v7"}
+  ]
+}
+```
