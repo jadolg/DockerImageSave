@@ -14,7 +14,7 @@ var (
 	tagPattern        = regexp.MustCompile(`^[a-zA-Z0-9_][a-zA-Z0-9._-]{0,127}$`)
 	digestPattern     = regexp.MustCompile(`^[a-z0-9]+:[a-f0-9]+$`)
 	imageNamePattern  = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._\-/:]*$`)
-	platformPattern   = regexp.MustCompile(`^[a-z0-9][a-z0-9/_-]*$`)
+	platformPattern   = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]*$`)
 )
 
 func validateRegistry(registry string) error {

@@ -731,7 +731,7 @@ func TestValidatePlatformParam(t *testing.T) {
 		{name: "valid arch arm", param: "arch", value: "arm", wantErr: false},
 		{name: "valid variant v7", param: "variant", value: "v7", wantErr: false},
 		{name: "valid variant v6", param: "variant", value: "v6", wantErr: false},
-		{name: "valid with slash", param: "arch", value: "arm/v7", wantErr: false},
+		{name: "invalid slash in arch", param: "arch", value: "arm/v7", wantErr: true, errMsg: "invalid arch parameter"},
 		{name: "valid with hyphen", param: "os", value: "linux-musl", wantErr: false},
 		{name: "valid with underscore", param: "arch", value: "arm_v7", wantErr: false},
 
