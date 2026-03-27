@@ -14,6 +14,7 @@ import (
 
 const bearerPrefix = "Bearer "
 const responseBodyStr = "response body"
+const invalidImageReferenceFormat = "invalid image reference: %w"
 
 // ImageReference represents a parsed Docker image reference
 type ImageReference struct {
@@ -133,14 +134,13 @@ func NewRegistryClient() *RegistryClient {
 // Authenticate obtains a token for the given image
 func (c *RegistryClient) Authenticate(ref ImageReference) error {
 	if err := ValidateImageReference(ref); err != nil {
-		return fmt.Errorf("invalid image reference: %w", err)
+		return fmt.Errorf(invalidImageReferenceFormat, err)
 	}
 
 	creds, hasCredentials := GetCredentials(ref.Registry)
+	c.username = "anonymous"
 	if hasCredentials {
 		c.username = creds.Username
-	} else {
-		c.username = "anonymous"
 	}
 
 	registryURL, err := buildRegistryURL(ref.Registry, "/v2/")
@@ -153,11 +153,12 @@ func (c *RegistryClient) Authenticate(ref ImageReference) error {
 	}
 	defer closeWithLog(resp.Body, responseBodyStr)
 
-	if resp.StatusCode == http.StatusOK {
+	switch resp.StatusCode {
+	case http.StatusOK:
 		return nil // No auth required
-	}
-
-	if resp.StatusCode != http.StatusUnauthorized {
+	case http.StatusUnauthorized:
+		// continue to token exchange below
+	default:
 		return fmt.Errorf("unexpected status: %d", resp.StatusCode)
 	}
 
@@ -168,7 +169,20 @@ func (c *RegistryClient) Authenticate(ref ImageReference) error {
 
 	realm, service, scope := parseAuthHeader(authHeader, ref.Repository)
 
-	// Validate the realm URL to prevent SSRF
+	if err := validateAuthRealm(realm); err != nil {
+		return err
+	}
+
+	token, err := c.fetchToken(realm, service, scope, creds, hasCredentials)
+	if err != nil {
+		return err
+	}
+	c.token = token
+	return nil
+}
+
+// validateAuthRealm checks that the token realm URL is safe to contact (SSRF protection).
+func validateAuthRealm(realm string) error {
 	parsedRealm, err := url.Parse(realm)
 	if err != nil {
 		return fmt.Errorf("invalid auth realm URL: %w", err)
@@ -176,32 +190,34 @@ func (c *RegistryClient) Authenticate(ref ImageReference) error {
 	if parsedRealm.Scheme != "https" && parsedRealm.Scheme != "http" {
 		return fmt.Errorf("invalid auth realm scheme: %s", parsedRealm.Scheme)
 	}
-	// Validate the realm host to prevent SSRF to internal/private networks
 	if err := validateRegistry(parsedRealm.Host); err != nil {
 		return fmt.Errorf("invalid auth realm host: %w", err)
 	}
+	return nil
+}
 
+// fetchToken requests a Bearer token from the auth realm and returns it.
+func (c *RegistryClient) fetchToken(realm, service, scope string, creds RegistryCredentials, hasCredentials bool) (string, error) {
 	tokenURL := fmt.Sprintf("%s?service=%s&scope=%s", realm, url.QueryEscape(service), url.QueryEscape(scope))
 
 	req, err := http.NewRequest("GET", tokenURL, nil)
 	if err != nil {
-		return err
+		return "", err
 	}
-
 	if hasCredentials {
 		auth := base64.StdEncoding.EncodeToString([]byte(creds.Username + ":" + creds.Password))
 		req.Header.Set("Authorization", "Basic "+auth)
 	}
 
-	resp, err = c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer closeWithLog(resp.Body, responseBodyStr)
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return fmt.Errorf("authentication failed: %d - %s", resp.StatusCode, string(body))
+		return "", fmt.Errorf("authentication failed: %d - %s", resp.StatusCode, string(body))
 	}
 
 	var tokenResp struct {
@@ -209,15 +225,14 @@ func (c *RegistryClient) Authenticate(ref ImageReference) error {
 		AccessToken string `json:"access_token"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
-		return err
+		return "", err
 	}
 
-	c.token = tokenResp.Token
-	if c.token == "" {
-		c.token = tokenResp.AccessToken
+	token := tokenResp.Token
+	if token == "" {
+		token = tokenResp.AccessToken
 	}
-
-	return nil
+	return token, nil
 }
 
 // GetAuthenticatedUser returns the username used for authentication
@@ -370,7 +385,7 @@ func (c *RegistryClient) doSafeRegistryRequest(registry, pathFormat string, head
 // fetchManifestResponse fetches the raw manifest response from the registry.
 func (c *RegistryClient) fetchManifestResponse(ref ImageReference, reference string) (*http.Response, error) {
 	if err := ValidateImageReference(ref); err != nil {
-		return nil, fmt.Errorf("invalid image reference: %w", err)
+		return nil, fmt.Errorf(invalidImageReferenceFormat, err)
 	}
 
 	headers := map[string]string{"Accept": manifestAcceptHeader}
@@ -379,10 +394,6 @@ func (c *RegistryClient) fetchManifestResponse(ref ImageReference, reference str
 
 // getManifest retrieves the image manifest for the given platform
 func (c *RegistryClient) getManifest(ref ImageReference, platform Platform) (*ManifestV2, error) {
-	if err := ValidateImageReference(ref); err != nil {
-		return nil, fmt.Errorf("invalid image reference: %w", err)
-	}
-
 	resp, err := c.fetchManifestResponse(ref, ref.Tag)
 	if err != nil {
 		return nil, err
@@ -405,7 +416,7 @@ func (c *RegistryClient) getManifest(ref ImageReference, platform Platform) (*Ma
 
 func (c *RegistryClient) getManifestByDigest(ref ImageReference, digest string) (*ManifestV2, error) {
 	if err := ValidateImageReference(ref); err != nil {
-		return nil, fmt.Errorf("invalid image reference: %w", err)
+		return nil, fmt.Errorf(invalidImageReferenceFormat, err)
 	}
 
 	if err := validateDigest(digest); err != nil {
@@ -436,7 +447,7 @@ func (c *RegistryClient) getManifestByDigest(ref ImageReference, digest string) 
 // DownloadBlob downloads a blob to a file
 func (c *RegistryClient) DownloadBlob(ref ImageReference, digest, destPath string) error {
 	if err := ValidateImageReference(ref); err != nil {
-		return fmt.Errorf("invalid image reference: %w", err)
+		return fmt.Errorf(invalidImageReferenceFormat, err)
 	}
 
 	if err := validateDigest(digest); err != nil {

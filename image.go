@@ -99,11 +99,7 @@ func createLayerMetadata(layerDir, diffID string, index int, imageConfig *ImageC
 		layerJSON["parent"] = prevDiffID
 	}
 
-	layerJSONBytes, err := json.Marshal(layerJSON)
-	if err != nil {
-		return fmt.Errorf("failed to marshal layer JSON: %w", err)
-	}
-	return os.WriteFile(filepath.Join(layerDir, "json"), layerJSONBytes, 0644)
+	return marshalJSONToFile(layerJSON, layerDir, "json")
 }
 
 // downloadAllLayers downloads all layers and returns their diff IDs
@@ -141,11 +137,7 @@ func createDockerManifest(ref ImageReference, configDigest string, layerPaths []
 		},
 	}
 
-	manifestJSONBytes, err := json.Marshal(manifestJSON)
-	if err != nil {
-		return fmt.Errorf("failed to marshal manifest JSON: %w", err)
-	}
-	return os.WriteFile(filepath.Join(tempDir, "manifest.json"), manifestJSONBytes, 0644)
+	return marshalJSONToFile(manifestJSON, tempDir, "manifest.json")
 }
 
 // createRepositoriesFile creates the repositories file for docker load
@@ -157,11 +149,7 @@ func createRepositoriesFile(ref ImageReference, layerPaths []string, tempDir str
 		imageName: {ref.Tag: topLayer},
 	}
 
-	reposBytes, err := json.Marshal(repositories)
-	if err != nil {
-		return fmt.Errorf("failed to marshal repositories JSON: %w", err)
-	}
-	return os.WriteFile(filepath.Join(tempDir, "repositories"), reposBytes, 0644)
+	return marshalJSONToFile(repositories, tempDir, "repositories")
 }
 
 // createOutputTar creates the final tar archive
@@ -246,4 +234,13 @@ func GetImagePlatforms(imageRef string) ([]Platform, error) {
 	}
 
 	return client.GetPlatforms(ref)
+}
+
+// marshalJSONToFile marshals v to JSON and writes it to dir/filename.
+func marshalJSONToFile(v interface{}, dir, filename string) error {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return fmt.Errorf("failed to marshal %s: %w", filename, err)
+	}
+	return os.WriteFile(filepath.Join(dir, filename), data, 0644)
 }

@@ -115,40 +115,14 @@ func (s *Server) logoHandler(w http.ResponseWriter, _ *http.Request) {
 
 // imageHandler handles the /image endpoint
 func (s *Server) imageHandler(w http.ResponseWriter, r *http.Request) {
-
-	imageName := r.URL.Query().Get("name")
-	if imageName == "" {
-		writeJSONError(w, "missing required 'name' query parameter", http.StatusBadRequest)
+	imageName, ok := extractImageName(w, r)
+	if !ok {
 		return
 	}
 
-	imageName, err := sanitizeImageName(imageName)
-	if err != nil {
-		writeJSONError(w, fmt.Sprintf("invalid image name: %v", err), http.StatusBadRequest)
+	platform, ok := platformFromRequest(w, r)
+	if !ok {
 		return
-	}
-
-	platform := DefaultPlatform()
-	if osParam := r.URL.Query().Get("os"); osParam != "" {
-		if err := validatePlatformParam("os", osParam); err != nil {
-			writeJSONError(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		platform.OS = osParam
-	}
-	if archParam := r.URL.Query().Get("arch"); archParam != "" {
-		if err := validatePlatformParam("arch", archParam); err != nil {
-			writeJSONError(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		platform.Architecture = archParam
-	}
-	if variantParam := r.URL.Query().Get("variant"); variantParam != "" {
-		if err := validatePlatformParam("variant", variantParam); err != nil {
-			writeJSONError(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		platform.Variant = variantParam
 	}
 
 	cachePath := s.cache.GetCachePath(imageName, platform)
@@ -160,7 +134,7 @@ func (s *Server) imageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("Downloading image: %s (%s)\n", imageName, platform)
-	sfKey := fmt.Sprintf("%s_%s_%s_%s", imageName, platform.OS, platform.Architecture, platform.Variant)
+	sfKey := imageName + "_" + platform.String()
 	result, err, _ := s.downloadGroup.Do(sfKey, func() (interface{}, error) {
 		return DownloadImage(imageName, s.cache.Dir(), platform)
 	})
@@ -177,15 +151,8 @@ func (s *Server) imageHandler(w http.ResponseWriter, r *http.Request) {
 
 // platformsHandler handles the /platforms endpoint
 func (s *Server) platformsHandler(w http.ResponseWriter, r *http.Request) {
-	imageName := r.URL.Query().Get("name")
-	if imageName == "" {
-		writeJSONError(w, "missing required 'name' query parameter", http.StatusBadRequest)
-		return
-	}
-
-	imageName, err := sanitizeImageName(imageName)
-	if err != nil {
-		writeJSONError(w, fmt.Sprintf("invalid image name: %v", err), http.StatusBadRequest)
+	imageName, ok := extractImageName(w, r)
+	if !ok {
 		return
 	}
 
@@ -199,12 +166,46 @@ func (s *Server) platformsHandler(w http.ResponseWriter, r *http.Request) {
 		platforms = []Platform{}
 	}
 
-	w.Header().Set(contentTypeHeader, "application/json")
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{
-		"platforms": platforms,
-	}); err != nil {
-		log.Printf("Failed to write platforms response: %v\n", err)
+	writeJSON(w, http.StatusOK, map[string]interface{}{"platforms": platforms})
+}
+
+// extractImageName reads and sanitizes the "name" query parameter, writing an
+// error response and returning false if it is missing or invalid.
+func extractImageName(w http.ResponseWriter, r *http.Request) (string, bool) {
+	imageName := r.URL.Query().Get("name")
+	if imageName == "" {
+		writeJSONError(w, "missing required 'name' query parameter", http.StatusBadRequest)
+		return "", false
 	}
+	imageName, err := sanitizeImageName(imageName)
+	if err != nil {
+		writeJSONError(w, fmt.Sprintf("invalid image name: %v", err), http.StatusBadRequest)
+		return "", false
+	}
+	return imageName, true
+}
+
+// platformFromRequest parses and validates the os/arch/variant query parameters,
+// writing an error response and returning false if any value is invalid.
+func platformFromRequest(w http.ResponseWriter, r *http.Request) (Platform, bool) {
+	platform := DefaultPlatform()
+	for _, field := range []struct {
+		param string
+		dest  *string
+	}{
+		{"os", &platform.OS},
+		{"arch", &platform.Architecture},
+		{"variant", &platform.Variant},
+	} {
+		if val := r.URL.Query().Get(field.param); val != "" {
+			if err := validatePlatformParam(field.param, val); err != nil {
+				writeJSONError(w, err.Error(), http.StatusBadRequest)
+				return Platform{}, false
+			}
+			*field.dest = val
+		}
+	}
+	return platform, true
 }
 
 // serveImageFile streams an image tar file to the response with Range request support
@@ -246,15 +247,18 @@ func (s *Server) serveImageFile(w http.ResponseWriter, r *http.Request, imagePat
 	pullsCountMetric.Inc()
 }
 
-// writeJSONError writes a JSON error response
-func writeJSONError(w http.ResponseWriter, message string, statusCode int) {
+// writeJSON writes a JSON response with the given status code.
+func writeJSON(w http.ResponseWriter, statusCode int, v interface{}) {
 	w.Header().Set(contentTypeHeader, "application/json")
 	w.WriteHeader(statusCode)
-	err := json.NewEncoder(w).Encode(map[string]string{"error": message})
-	if err != nil {
-		errorsTotalMetric.Inc()
-		log.Printf("Failed to write JSON error response: %v\n", err)
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		log.Printf("Failed to write JSON response: %v\n", err)
 	}
+}
+
+// writeJSONError writes a JSON error response.
+func writeJSONError(w http.ResponseWriter, message string, statusCode int) {
+	writeJSON(w, statusCode, map[string]string{"error": message})
 }
 
 // humanizeBytes converts bytes to a human-readable format
