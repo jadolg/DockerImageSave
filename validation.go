@@ -26,50 +26,46 @@ func validateRegistry(registry string) error {
 	if !registryPattern.MatchString(registry) {
 		return fmt.Errorf("invalid registry hostname: %s", registry)
 	}
-	lower := strings.ToLower(registry)
-	host := strings.Split(lower, ":")[0]
+	host := strings.Split(strings.ToLower(registry), ":")[0]
+	if isBlockedHost(host) {
+		return fmt.Errorf("registry hostname not allowed: %s", registry)
+	}
+	return nil
+}
 
+// isBlockedHost returns true if the host is a private, loopback, or otherwise
+// disallowed address (SSRF protection).
+func isBlockedHost(host string) bool {
 	if host == "localhost" || host == "127.0.0.1" {
-		return fmt.Errorf("registry hostname not allowed: %s", registry)
+		return true
 	}
-
-	validIP, isPrivate, _ := parseIPRange(host)
-	if validIP && isPrivate {
-		return fmt.Errorf("registry hostname not allowed: %s", registry)
+	if validIP, isPrivate, _ := parseIPRange(host); validIP && isPrivate {
+		return true
 	}
-
 	if host == "169.254.169.254" {
-		return fmt.Errorf("registry hostname not allowed: %s", registry)
+		return true
 	}
-
 	if !strings.Contains(host, ".") && isNumeric(host) {
-		return fmt.Errorf("registry hostname not allowed: %s", registry)
+		return true
 	}
+	return hasIPObfuscation(strings.Split(host, "."))
+}
 
-	parts := strings.Split(host, ".")
-	if len(parts) == 4 && allNumeric(parts) {
-		for _, part := range parts {
-			if len(part) > 1 && part[0] == '0' {
-				return fmt.Errorf("registry hostname not allowed: %s", registry)
-			}
-		}
-	}
-
+// hasIPObfuscation returns true if any part of the IP uses hex or zero-padded notation.
+func hasIPObfuscation(parts []string) bool {
 	for _, part := range parts {
 		if strings.HasPrefix(part, "0x") || strings.HasPrefix(part, "0X") {
-			return fmt.Errorf("registry hostname not allowed: %s", registry)
+			return true
 		}
 	}
-
 	if len(parts) == 4 && allNumeric(parts) {
 		for _, part := range parts {
 			if len(part) > 1 && part[0] == '0' {
-				return fmt.Errorf("registry hostname not allowed: %s", registry)
+				return true
 			}
 		}
 	}
-
-	return nil
+	return false
 }
 
 func parseIPRange(host string) (bool, bool, bool) {
@@ -77,11 +73,11 @@ func parseIPRange(host string) (bool, bool, bool) {
 	isLoopback := false
 	parts := strings.Split(host, ".")
 	if len(parts) != 4 {
-		return false, isPrivate, isLoopback
+		return false, false, false
 	}
 	for _, p := range parts {
 		if !isNumeric(p) {
-			return false, isPrivate, isLoopback
+			return false, false, false
 		}
 	}
 	a := parts[0]
