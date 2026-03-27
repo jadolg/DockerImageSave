@@ -86,16 +86,18 @@ func (c *CacheManager) PerformCleanup() {
 }
 
 // GetCachePath returns the full path for a cached image
-func (c *CacheManager) GetCachePath(imageName string) string {
-	return filepath.Join(c.dir, c.GetCacheFilename(imageName))
+func (c *CacheManager) GetCachePath(imageName string, platform Platform) string {
+	return filepath.Join(c.dir, c.GetCacheFilename(imageName, platform))
 }
 
 // GetCacheFilename generates a safe filename for caching
-func (c *CacheManager) GetCacheFilename(imageName string) string {
+func (c *CacheManager) GetCacheFilename(imageName string, platform Platform) string {
 	ref := ParseImageReference(imageName)
 	safeImageName := sanitizeFilenameComponent(ref.Repository)
 	safeTag := sanitizeFilenameComponent(ref.Tag)
-	return fmt.Sprintf("%s_%s.tar.gz", safeImageName, safeTag)
+	safeOS := sanitizeFilenameComponent(platform.OS)
+	safeArch := sanitizeFilenameComponent(platform.Architecture)
+	return fmt.Sprintf("%s_%s_%s_%s.tar.gz", safeImageName, safeTag, safeOS, safeArch)
 }
 
 // Dir returns the cache directory path

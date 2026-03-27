@@ -219,7 +219,7 @@ func TestDownloadImage_PublicImage(t *testing.T) {
 	}
 	defer cleanupTempDir(t, outputDir)
 
-	imagePath, err := DownloadImage("alpine:latest", outputDir)
+	imagePath, err := DownloadImage("alpine:latest", outputDir, DefaultPlatform())
 	if err != nil {
 		t.Fatalf("DownloadImage failed: %v", err)
 	}
@@ -248,7 +248,7 @@ func TestDownloadImage_WithAuthentication(t *testing.T) {
 	}
 	defer cleanupTempDir(t, outputDir)
 
-	imagePath, err := DownloadImage("busybox:latest", outputDir)
+	imagePath, err := DownloadImage("busybox:latest", outputDir, DefaultPlatform())
 	if err != nil {
 		t.Fatalf("DownloadImage with auth failed: %v", err)
 	}
@@ -269,7 +269,7 @@ func TestDownloadImage_NonExistentImage(t *testing.T) {
 	}
 	defer cleanupTempDir(t, outputDir)
 
-	_, err = DownloadImage("thisimagedoesnotexist12345:nonexistenttag", outputDir)
+	_, err = DownloadImage("thisimagedoesnotexist12345:nonexistenttag", outputDir, DefaultPlatform())
 	if err == nil {
 		t.Error("expected error for non-existent image")
 	}

@@ -168,7 +168,7 @@ func TestServeImageFile_RangeRequest(t *testing.T) {
 		req.Header.Set("Range", "bytes=0-9")
 		w := httptest.NewRecorder()
 
-		server.serveImageFile(w, req, testFile, "test:image")
+		server.serveImageFile(w, req, testFile, "test:image", DefaultPlatform())
 
 		resp := w.Result()
 		if resp.StatusCode != http.StatusPartialContent {
@@ -192,7 +192,7 @@ func TestServeImageFile_RangeRequest(t *testing.T) {
 		req.Header.Set("Range", "bytes=10-19")
 		w := httptest.NewRecorder()
 
-		server.serveImageFile(w, req, testFile, "test:image")
+		server.serveImageFile(w, req, testFile, "test:image", DefaultPlatform())
 
 		resp := w.Result()
 		if resp.StatusCode != http.StatusPartialContent {
@@ -217,13 +217,13 @@ func TestServeImageFile_RangeRequest(t *testing.T) {
 		req1 := httptest.NewRequest(http.MethodGet, "/image", nil)
 		req1.Header.Set("Range", "bytes=0-9")
 		w1 := httptest.NewRecorder()
-		server.serveImageFile(w1, req1, testFile, "test:image")
+		server.serveImageFile(w1, req1, testFile, "test:image", DefaultPlatform())
 		combined.Write(w1.Body.Bytes())
 
 		req2 := httptest.NewRequest(http.MethodGet, "/image", nil)
 		req2.Header.Set("Range", "bytes=10-")
 		w2 := httptest.NewRecorder()
-		server.serveImageFile(w2, req2, testFile, "test:image")
+		server.serveImageFile(w2, req2, testFile, "test:image", DefaultPlatform())
 		combined.Write(w2.Body.Bytes())
 
 		if !bytes.Equal(combined.Bytes(), testContent) {
@@ -236,7 +236,7 @@ func TestServeImageFile_RangeRequest(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/image", nil)
 		w := httptest.NewRecorder()
 
-		server.serveImageFile(w, req, testFile, "test:image")
+		server.serveImageFile(w, req, testFile, "test:image", DefaultPlatform())
 
 		resp := w.Result()
 		if resp.StatusCode != http.StatusOK {
@@ -275,7 +275,7 @@ func TestServeImageFile_InvalidRange(t *testing.T) {
 	req.Header.Set("Range", "bytes=100-200")
 	w := httptest.NewRecorder()
 
-	server.serveImageFile(w, req, testFile, "test:image")
+	server.serveImageFile(w, req, testFile, "test:image", DefaultPlatform())
 
 	resp := w.Result()
 	if resp.StatusCode != http.StatusRequestedRangeNotSatisfiable {

@@ -24,10 +24,10 @@ func authenticateClient(ref ImageReference) (*RegistryClient, error) {
 	return client, nil
 }
 
-// fetchManifest retrieves the manifest for the image
-func fetchManifest(client *RegistryClient, ref ImageReference) (*ManifestV2, error) {
-	log.Printf("Fetching manifest for %s:%s...\n", ref.Repository, ref.Tag)
-	manifest, err := client.getManifest(ref)
+// fetchManifest retrieves the manifest for the image for the given platform
+func fetchManifest(client *RegistryClient, ref ImageReference, platform Platform) (*ManifestV2, error) {
+	log.Printf("Fetching manifest for %s:%s (platform: %s/%s)...\n", ref.Repository, ref.Tag, platform.OS, platform.Architecture)
+	manifest, err := client.getManifest(ref, platform)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get manifest: %w", err)
 	}
@@ -156,14 +156,16 @@ func createRepositoriesFile(ref ImageReference, layerPaths []string, tempDir str
 }
 
 // createOutputTar creates the final tar archive
-func createOutputTar(ref ImageReference, tempDir, outputDir string) (string, error) {
+func createOutputTar(ref ImageReference, tempDir, outputDir string, platform Platform) (string, error) {
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return "", err
 	}
 
 	safeImageName := sanitizeFilenameComponent(ref.Repository)
 	safeTag := sanitizeFilenameComponent(ref.Tag)
-	outputPath := filepath.Join(outputDir, fmt.Sprintf("%s_%s.tar.gz", safeImageName, safeTag))
+	safeOS := sanitizeFilenameComponent(platform.OS)
+	safeArch := sanitizeFilenameComponent(platform.Architecture)
+	outputPath := filepath.Join(outputDir, fmt.Sprintf("%s_%s_%s_%s.tar.gz", safeImageName, safeTag, safeOS, safeArch))
 
 	log.Println("Creating tar archive...")
 	if err := createTar(tempDir, outputPath); err != nil {
@@ -175,7 +177,7 @@ func createOutputTar(ref ImageReference, tempDir, outputDir string) (string, err
 }
 
 // DownloadImage downloads a Docker image and saves it as a tar file
-func DownloadImage(imageRef string, outputDir string) (string, error) {
+func DownloadImage(imageRef string, outputDir string, platform Platform) (string, error) {
 	ref := ParseImageReference(imageRef)
 
 	// Validate the image reference to prevent SSRF and other attacks
@@ -188,7 +190,7 @@ func DownloadImage(imageRef string, outputDir string) (string, error) {
 		return "", err
 	}
 
-	manifest, err := fetchManifest(client, ref)
+	manifest, err := fetchManifest(client, ref, platform)
 	if err != nil {
 		return "", err
 	}
@@ -221,5 +223,22 @@ func DownloadImage(imageRef string, outputDir string) (string, error) {
 		return "", err
 	}
 
-	return createOutputTar(ref, tempDir, outputDir)
+	return createOutputTar(ref, tempDir, outputDir, platform)
+}
+
+// GetImagePlatforms returns the available platforms for a multi-arch image.
+// Returns nil, nil if the image is single-arch.
+func GetImagePlatforms(imageRef string) ([]Platform, error) {
+	ref := ParseImageReference(imageRef)
+
+	if err := ValidateImageReference(ref); err != nil {
+		return nil, fmt.Errorf("invalid image reference: %w", err)
+	}
+
+	client, err := authenticateClient(ref)
+	if err != nil {
+		return nil, err
+	}
+
+	return client.GetPlatforms(ref)
 }

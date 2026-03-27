@@ -77,6 +77,41 @@
                 background: transparent;
             }
 
+            .platform-row {
+                display: none;
+                align-items: center;
+                gap: 8px;
+                margin-bottom: 16px;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .platform-row.visible {
+                display: flex;
+            }
+
+            .platform-label {
+                font-size: 13px;
+                color: #5f6368;
+            }
+
+            .platform-select {
+                height: 32px;
+                padding: 0 8px;
+                font-size: 13px;
+                border: 1px solid #dfe1e5;
+                border-radius: 4px;
+                color: #3c4043;
+                background-color: #fff;
+                cursor: pointer;
+                outline: none;
+            }
+
+            .platform-select:focus {
+                border-color: #4285f4;
+                box-shadow: 0 0 0 1px #4285f4;
+            }
+
             .buttons {
                 display: flex;
                 gap: 12px;
@@ -104,6 +139,20 @@
                 opacity: 0.6;
                 cursor: not-allowed;
             }
+
+            .btn-primary {
+                background-color: #4285f4;
+                border-color: #4285f4;
+                color: #fff;
+            }
+
+            .btn-primary:hover {
+                background-color: #3b78e7;
+                border-color: #3b78e7;
+                color: #fff;
+                box-shadow: 0 1px 3px rgba(66, 133, 244, 0.4);
+            }
+
 
             .status {
                 margin-top: 20px;
@@ -264,8 +313,17 @@
                         autofocus
                     />
                 </div>
+                <div class="platform-row" id="platformRow">
+                    <span class="platform-label">OS:</span>
+                    <select class="platform-select" id="osSelect"></select>
+                    <span class="platform-label">Arch:</span>
+                    <select class="platform-select" id="archSelect"></select>
+                </div>
                 <div class="buttons">
-                    <button type="submit" class="btn" id="downloadBtn">
+                    <button type="button" class="btn" id="detectBtn">
+                        Detect platforms
+                    </button>
+                    <button type="submit" class="btn btn-primary" id="downloadBtn">
                         Download
                     </button>
                 </div>
@@ -280,9 +338,27 @@
             const form = document.getElementById("downloadForm");
             const imageNameInput = document.getElementById("imageName");
             const downloadBtn = document.getElementById("downloadBtn");
+            const detectBtn = document.getElementById("detectBtn");
+            const platformRow = document.getElementById("platformRow");
+            const osSelect = document.getElementById("osSelect");
+            const archSelect = document.getElementById("archSelect");
             const status = document.getElementById("status");
             const progressBar = document.getElementById("progressBar");
             const progressFill = document.getElementById("progressFill");
+
+            // Track which image name the current platform dropdowns belong to
+            let detectedForImage = null;
+
+            function hidePlatforms() {
+                detectedForImage = null;
+                platformRow.classList.remove("visible");
+                osSelect.innerHTML = "";
+                archSelect.innerHTML = "";
+            }
+
+            imageNameInput.addEventListener("input", () => {
+                hidePlatforms();
+            });
 
             function parseError(errorMessage) {
                 // Try to extract meaningful parts from the error
@@ -407,13 +483,13 @@
                         result.detail = `Server returned status ${statusMatch[1]}`;
                     }
                 } else if (
-                    errorMessage.includes("no suitable manifest found")
+                    errorMessage.includes("no manifest found for platform")
                 ) {
-                    result.title = "Unsupported Image";
+                    result.title = "Platform Not Available";
                     result.message =
-                        "No compatible manifest was found for this image.";
+                        "This image does not support the selected platform.";
                     result.detail =
-                        "The image may not support the requested platform.";
+                        'Use "Detect platforms" to see what is available.';
                 } else if (errorMessage.includes("failed to download config")) {
                     result.title = "Download Error";
                     result.message =
@@ -498,6 +574,69 @@
                 status.appendChild(errorBox);
             }
 
+            detectBtn.addEventListener("click", async () => {
+                const imageName = imageNameInput.value.trim();
+                if (!imageName) {
+                    status.textContent = "Please enter an image name first";
+                    status.classList.add("error");
+                    return;
+                }
+
+                status.classList.remove("error");
+                setStatusWithSpinner("Detecting available platforms...");
+                detectBtn.disabled = true;
+                hidePlatforms();
+
+                try {
+                    const response = await fetch(
+                        `/platforms?name=${encodeURIComponent(imageName)}`,
+                    );
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        showError(data.error || "Failed to detect platforms");
+                        return;
+                    }
+
+                    const allPlatforms = data.platforms;
+                    const platforms = (allPlatforms || []).filter(
+                        (p) => p.os && p.os !== "unknown" && p.architecture && p.architecture !== "unknown",
+                    );
+                    if (platforms.length === 0) {
+                        status.textContent =
+                            "Single-arch image — no platform selection needed.";
+                        return;
+                    }
+
+                    // Populate selects with only the detected platforms
+                    const osValues = [...new Set(platforms.map((p) => p.os))];
+                    const archValues = [
+                        ...new Set(
+                            platforms.map((p) =>
+                                p.variant
+                                    ? p.architecture + "/" + p.variant
+                                    : p.architecture,
+                            ),
+                        ),
+                    ];
+
+                    osSelect.innerHTML = osValues
+                        .map((o) => `<option value="${o}">${o}</option>`)
+                        .join("");
+                    archSelect.innerHTML = archValues
+                        .map((a) => `<option value="${a}">${a}</option>`)
+                        .join("");
+
+                    detectedForImage = imageName;
+                    platformRow.classList.add("visible");
+                    status.textContent = "";
+                } catch (error) {
+                    showError(error.message);
+                } finally {
+                    detectBtn.disabled = false;
+                }
+            });
+
             form.addEventListener("submit", async (e) => {
                 e.preventDefault();
 
@@ -508,6 +647,21 @@
                     return;
                 }
 
+                // Only include platform params if dropdowns were detected for this exact image
+                let url = `/image?name=${encodeURIComponent(imageName)}`;
+                if (detectedForImage === imageName) {
+                    const selectedOS = osSelect.value;
+                    const selectedArch = archSelect.value;
+                    // Split arch into architecture and variant (e.g. "arm/v7" → arch=arm, variant=v7)
+                    const archParts = selectedArch.split("/");
+                    const arch = archParts[0];
+                    const variant = archParts[1] || "";
+                    url += `&os=${encodeURIComponent(selectedOS)}&arch=${encodeURIComponent(arch)}`;
+                    if (variant) {
+                        url += `&variant=${encodeURIComponent(variant)}`;
+                    }
+                }
+
                 // Reset and show progress
                 status.classList.remove("error");
                 setStatusWithSpinner("Preparing download...");
@@ -515,11 +669,10 @@
                 progressFill.style.width = "0%";
                 progressFill.classList.add("indeterminate");
                 downloadBtn.disabled = true;
+                detectBtn.disabled = true;
 
                 try {
-                    const response = await fetch(
-                        `/image?name=${encodeURIComponent(imageName)}`,
-                    );
+                    const response = await fetch(url);
 
                     if (!response.ok) {
                         const errorData = await response.json();
@@ -609,25 +762,26 @@
 
                     // Create blob and trigger download
                     const blob = new Blob(chunks);
-                    const url = URL.createObjectURL(blob);
+                    const blobUrl = URL.createObjectURL(blob);
                     const a = document.createElement("a");
-                    a.href = url;
+                    a.href = blobUrl;
                     a.download = filename;
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
+                    URL.revokeObjectURL(blobUrl);
 
-                    const finalSizeMB = (receivedBytes / (1024 * 1024)).toFixed(
-                        1,
-                    );
-                    status.textContent = `Download complete! (${finalSizeMB} MB)`;
-                    progressFill.style.width = "100%";
+                    imageNameInput.value = "";
+                    hidePlatforms();
+                    status.textContent = "";
+                    progressBar.classList.remove("visible");
+                    progressFill.style.width = "0%";
                 } catch (error) {
                     showError(error.message);
                     progressBar.classList.remove("visible");
                 } finally {
                     downloadBtn.disabled = false;
+                    detectBtn.disabled = false;
                 }
             });
         </script>

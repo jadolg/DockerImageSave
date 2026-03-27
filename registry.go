@@ -45,6 +45,18 @@ type ManifestV2 struct {
 	} `json:"layers"`
 }
 
+// Platform represents a target OS/architecture combination
+type Platform struct {
+	OS           string `json:"os"`
+	Architecture string `json:"architecture"`
+	Variant      string `json:"variant,omitempty"`
+}
+
+// DefaultPlatform returns the default platform (linux/amd64)
+func DefaultPlatform() Platform {
+	return Platform{OS: "linux", Architecture: "amd64"}
+}
+
 // ManifestList represents a multi-platform manifest list
 type ManifestList struct {
 	SchemaVersion int    `json:"schemaVersion"`
@@ -56,6 +68,7 @@ type ManifestList struct {
 		Platform  struct {
 			Architecture string `json:"architecture"`
 			OS           string `json:"os"`
+			Variant      string `json:"variant"`
 		} `json:"platform"`
 	} `json:"manifests"`
 }
@@ -235,27 +248,33 @@ func isManifestList(contentType string) bool {
 	return strings.Contains(contentType, "manifest.list") || strings.Contains(contentType, "image.index")
 }
 
-// selectManifestDigest selects the best manifest from a manifest list, preferring linux/amd64
-func (c *RegistryClient) selectManifestDigest(ref ImageReference, list *ManifestList) (*ManifestV2, error) {
+// selectManifestDigest selects the manifest matching the given platform from a manifest list
+func (c *RegistryClient) selectManifestDigest(ref ImageReference, list *ManifestList, platform Platform) (*ManifestV2, error) {
+	// Try exact match with variant first
+	if platform.Variant != "" {
+		for _, m := range list.Manifests {
+			if m.Platform.OS == platform.OS && m.Platform.Architecture == platform.Architecture && m.Platform.Variant == platform.Variant {
+				return c.getManifestByDigest(ref, m.Digest)
+			}
+		}
+	}
+	// Try OS + architecture match
 	for _, m := range list.Manifests {
-		if m.Platform.OS == "linux" && m.Platform.Architecture == "amd64" {
+		if m.Platform.OS == platform.OS && m.Platform.Architecture == platform.Architecture {
 			return c.getManifestByDigest(ref, m.Digest)
 		}
 	}
-	if len(list.Manifests) > 0 {
-		return c.getManifestByDigest(ref, list.Manifests[0].Digest)
-	}
-	return nil, fmt.Errorf("no suitable manifest found")
+	return nil, fmt.Errorf("no manifest found for platform %s/%s", platform.OS, platform.Architecture)
 }
 
 // parseManifestResponse parses the manifest response body based on content type
-func (c *RegistryClient) parseManifestResponse(ref ImageReference, contentType string, body []byte) (*ManifestV2, error) {
+func (c *RegistryClient) parseManifestResponse(ref ImageReference, contentType string, body []byte, platform Platform) (*ManifestV2, error) {
 	if isManifestList(contentType) {
 		var list ManifestList
 		if err := json.Unmarshal(body, &list); err != nil {
 			return nil, err
 		}
-		return c.selectManifestDigest(ref, &list)
+		return c.selectManifestDigest(ref, &list, platform)
 	}
 
 	var manifest ManifestV2
@@ -263,6 +282,50 @@ func (c *RegistryClient) parseManifestResponse(ref ImageReference, contentType s
 		return nil, err
 	}
 	return &manifest, nil
+}
+
+// GetPlatforms returns the list of available platforms for a multi-arch image.
+// Returns nil, nil if the image is single-arch.
+func (c *RegistryClient) GetPlatforms(ref ImageReference) ([]Platform, error) {
+	if err := ValidateImageReference(ref); err != nil {
+		return nil, fmt.Errorf("invalid image reference: %w", err)
+	}
+
+	resp, err := c.fetchManifestResponse(ref, ref.Tag)
+	if err != nil {
+		return nil, err
+	}
+	defer closeWithLog(resp.Body, responseBodyStr)
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to get manifest: %d - %s", resp.StatusCode, string(body))
+	}
+
+	contentType := resp.Header.Get("Content-Type")
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if !isManifestList(contentType) {
+		return nil, nil
+	}
+
+	var list ManifestList
+	if err := json.Unmarshal(body, &list); err != nil {
+		return nil, err
+	}
+
+	platforms := make([]Platform, 0, len(list.Manifests))
+	for _, m := range list.Manifests {
+		platforms = append(platforms, Platform{
+			OS:           m.Platform.OS,
+			Architecture: m.Platform.Architecture,
+			Variant:      m.Platform.Variant,
+		})
+	}
+	return platforms, nil
 }
 
 // doSafeRegistryRequest constructs a validated URL from registry components and executes an HTTP GET request.
@@ -312,8 +375,8 @@ func (c *RegistryClient) fetchManifestResponse(ref ImageReference, reference str
 	return c.doSafeRegistryRequest(ref.Registry, "/v2/%s/manifests/%s", headers, ref.Repository, reference)
 }
 
-// getManifest retrieves the image manifest
-func (c *RegistryClient) getManifest(ref ImageReference) (*ManifestV2, error) {
+// getManifest retrieves the image manifest for the given platform
+func (c *RegistryClient) getManifest(ref ImageReference, platform Platform) (*ManifestV2, error) {
 	if err := ValidateImageReference(ref); err != nil {
 		return nil, fmt.Errorf("invalid image reference: %w", err)
 	}
@@ -335,7 +398,7 @@ func (c *RegistryClient) getManifest(ref ImageReference) (*ManifestV2, error) {
 		return nil, err
 	}
 
-	return c.parseManifestResponse(ref, contentType, body)
+	return c.parseManifestResponse(ref, contentType, body, platform)
 }
 
 func (c *RegistryClient) getManifestByDigest(ref ImageReference, digest string) (*ManifestV2, error) {

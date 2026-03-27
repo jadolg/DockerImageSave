@@ -13,6 +13,7 @@ var (
 	tagPattern        = regexp.MustCompile(`^[a-zA-Z0-9_][a-zA-Z0-9._-]{0,127}$`)
 	digestPattern     = regexp.MustCompile(`^[a-z0-9]+:[a-f0-9]+$`)
 	imageNamePattern  = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._\-/:]*$`)
+	platformPattern   = regexp.MustCompile(`^[a-z0-9][a-z0-9/_-]*$`)
 )
 
 func validateRegistry(registry string) error {
@@ -210,6 +211,19 @@ func sanitizeImageName(imageName string) (string, error) {
 	}
 
 	return imageName, nil
+}
+
+func validatePlatformParam(name, value string) error {
+	if value == "" {
+		return nil
+	}
+	if len(value) > 64 {
+		return fmt.Errorf("%s parameter too long", name)
+	}
+	if !platformPattern.MatchString(value) {
+		return fmt.Errorf("invalid %s parameter: %s", name, value)
+	}
+	return nil
 }
 
 func sanitizeFilenameComponent(s string) string {
