@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -58,6 +59,7 @@ func hasIPObfuscation(parts []string) bool {
 			return true
 		}
 	}
+
 	if len(parts) == 4 && allNumeric(parts) {
 		for _, part := range parts {
 			if len(part) > 1 && part[0] == '0' {
@@ -87,9 +89,10 @@ func parseIPRange(host string) (bool, bool, bool) {
 
 	isLoopback = host == "127.0.0.1"
 
+	bInt, _ := strconv.Atoi(b)
 	isPrivate = (a == "10") ||
 		(a == "192" && b == "168") ||
-		(a == "172" && b >= "16" && b <= "31") ||
+		(a == "172" && bInt >= 16 && bInt <= 31) ||
 		(a == "169" && b == "254" && c == "169" && d == "254") ||
 		host == "0.0.0.0"
 

@@ -99,7 +99,10 @@ func createLayerMetadata(layerDir, diffID string, index int, imageConfig *ImageC
 		layerJSON["parent"] = prevDiffID
 	}
 
-	layerJSONBytes, _ := json.Marshal(layerJSON)
+	layerJSONBytes, err := json.Marshal(layerJSON)
+	if err != nil {
+		return fmt.Errorf("failed to marshal layer JSON: %w", err)
+	}
 	return os.WriteFile(filepath.Join(layerDir, "json"), layerJSONBytes, 0644)
 }
 
@@ -138,7 +141,10 @@ func createDockerManifest(ref ImageReference, configDigest string, layerPaths []
 		},
 	}
 
-	manifestJSONBytes, _ := json.Marshal(manifestJSON)
+	manifestJSONBytes, err := json.Marshal(manifestJSON)
+	if err != nil {
+		return fmt.Errorf("failed to marshal manifest JSON: %w", err)
+	}
 	return os.WriteFile(filepath.Join(tempDir, "manifest.json"), manifestJSONBytes, 0644)
 }
 
@@ -151,7 +157,10 @@ func createRepositoriesFile(ref ImageReference, layerPaths []string, tempDir str
 		imageName: {ref.Tag: topLayer},
 	}
 
-	reposBytes, _ := json.Marshal(repositories)
+	reposBytes, err := json.Marshal(repositories)
+	if err != nil {
+		return fmt.Errorf("failed to marshal repositories JSON: %w", err)
+	}
 	return os.WriteFile(filepath.Join(tempDir, "repositories"), reposBytes, 0644)
 }
 

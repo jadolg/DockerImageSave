@@ -192,7 +192,7 @@ func (c *RegistryClient) Authenticate(ref ImageReference) error {
 	defer closeWithLog(resp.Body, responseBodyStr)
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 		return fmt.Errorf("authentication failed: %d - %s", resp.StatusCode, string(body))
 	}
 
@@ -386,7 +386,7 @@ func (c *RegistryClient) getManifest(ref ImageReference, platform Platform) (*Ma
 	defer closeWithLog(resp.Body, responseBodyStr)
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 		return nil, fmt.Errorf("failed to get manifest: %d - %s", resp.StatusCode, string(body))
 	}
 
