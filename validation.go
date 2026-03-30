@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"net/url"
 	"regexp"
-	"strconv"
 	"strings"
 )
 
@@ -37,19 +37,23 @@ func validateRegistry(registry string) error {
 // isBlockedHost returns true if the host is a private, loopback, or otherwise
 // disallowed address (SSRF protection).
 func isBlockedHost(host string) bool {
-	if host == "localhost" || host == "127.0.0.1" {
+	if host == "localhost" {
 		return true
 	}
-	if validIP, isPrivate, _ := parseIPRange(host); validIP && isPrivate {
-		return true
-	}
-	if host == "169.254.169.254" {
-		return true
+	if ip := net.ParseIP(host); ip != nil {
+		if isPrivateIP(ip) {
+			return true
+		}
 	}
 	if !strings.Contains(host, ".") && isNumeric(host) {
 		return true
 	}
 	return hasIPObfuscation(strings.Split(host, "."))
+}
+
+// isPrivateIP returns true if the IP is loopback, link-local, or private.
+func isPrivateIP(ip net.IP) bool {
+	return ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsPrivate() || ip.IsUnspecified()
 }
 
 // hasIPObfuscation returns true if any part of the IP uses hex or zero-padded notation.
@@ -68,35 +72,6 @@ func hasIPObfuscation(parts []string) bool {
 		}
 	}
 	return false
-}
-
-func parseIPRange(host string) (bool, bool, bool) {
-	isPrivate := false
-	isLoopback := false
-	parts := strings.Split(host, ".")
-	if len(parts) != 4 {
-		return false, false, false
-	}
-	for _, p := range parts {
-		if !isNumeric(p) {
-			return false, false, false
-		}
-	}
-	a := parts[0]
-	b := parts[1]
-	c := parts[2]
-	d := parts[3]
-
-	isLoopback = host == "127.0.0.1"
-
-	bInt, _ := strconv.Atoi(b)
-	isPrivate = (a == "10") ||
-		(a == "192" && b == "168") ||
-		(a == "172" && bInt >= 16 && bInt <= 31) ||
-		(a == "169" && b == "254" && c == "169" && d == "254") ||
-		host == "0.0.0.0"
-
-	return true, isPrivate, isLoopback
 }
 
 func isNumeric(s string) bool {
