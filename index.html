@@ -368,14 +368,17 @@
                     detail: null,
                 };
 
-                // Check for common error patterns
-                if (
+                // Check for common error patterns — check backend status-based
+                // messages first, then fall back to registry error codes.
+                if (errorMessage.includes("image not found")) {
+                    result.title = "Image Not Found";
+                    result.message = "The requested image does not exist.";
+                } else if (
                     errorMessage.includes("MANIFEST_UNKNOWN") ||
                     errorMessage.includes("manifest unknown")
                 ) {
                     result.title = "Image Not Found";
                     result.message = "The requested image tag does not exist.";
-                    // Try to extract the tag
                     const tagMatch = errorMessage.match(
                         /unknown tag=([^\s}"]+)/,
                     );
@@ -388,6 +391,10 @@
                 ) {
                     result.title = "Repository Not Found";
                     result.message = "The requested repository does not exist.";
+                } else if (errorMessage.includes("access denied")) {
+                    result.title = "Access Denied";
+                    result.message =
+                        "The image may not exist, or you may need credentials to access it.";
                 } else if (
                     errorMessage.includes("UNAUTHORIZED") ||
                     errorMessage.includes("unauthorized")

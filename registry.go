@@ -237,7 +237,7 @@ func (c *RegistryClient) fetchToken(realm, service, scope string, creds Registry
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 		log.WithField("response_body", string(body)).WithField("status_code", resp.StatusCode).Debug("Authentication request failed")
-		return "", fmt.Errorf("authentication failed (status %d): check credentials, or the image may not exist or may be private — %s", resp.StatusCode, string(body))
+		return "", fmt.Errorf("authentication failed (status %d): check credentials or verify the image exists", resp.StatusCode)
 	}
 
 	var tokenResp struct {
