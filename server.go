@@ -153,7 +153,7 @@ func (s *Server) imageHandler(w http.ResponseWriter, r *http.Request) {
 			"image": imageName,
 		}).WithError(err).Error("Failed to download image")
 		errorsTotalMetric.Inc()
-		writeJSONError(w, fmt.Sprintf("failed to download image: %v", err), http.StatusInternalServerError)
+		writeJSONError(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 	imagePath := result.(string)
@@ -171,7 +171,7 @@ func (s *Server) platformsHandler(w http.ResponseWriter, r *http.Request) {
 	platforms, err := GetImagePlatforms(imageName)
 	if err != nil {
 		log.WithField("image", imageName).WithError(err).Error("Failed to get platforms")
-		writeJSONError(w, fmt.Sprintf("failed to get platforms: %v", err), http.StatusInternalServerError)
+		writeJSONError(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 	if platforms == nil {
