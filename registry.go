@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -10,6 +11,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 const bearerPrefix = "Bearer "
@@ -127,7 +130,14 @@ func ParseImageReference(ref string) ImageReference {
 // NewRegistryClient creates a new registry client
 func NewRegistryClient() *RegistryClient {
 	return &RegistryClient{
-		httpClient: &http.Client{Timeout: 300 * time.Second},
+		httpClient: &http.Client{
+			Timeout: 300 * time.Second,
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					MinVersion: tls.VersionTLS12,
+				},
+			},
+		},
 	}
 }
 
@@ -217,7 +227,8 @@ func (c *RegistryClient) fetchToken(realm, service, scope string, creds Registry
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return "", fmt.Errorf("authentication failed: %d - %s", resp.StatusCode, string(body))
+		log.WithField("response_body", string(body)).WithField("status_code", resp.StatusCode).Debug("Authentication request failed")
+		return "", fmt.Errorf("authentication failed with status %d", resp.StatusCode)
 	}
 
 	var tokenResp struct {
