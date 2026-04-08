@@ -73,7 +73,7 @@ func (s *Server) Start(ctx context.Context) (*http.Server, error) {
 		"cache_dir": s.cache.Dir(),
 	}).Info("Starting server")
 	go func() {
-		if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
+		if err := srv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.WithError(err).Fatal("Server error")
 		}
 	}()
@@ -154,8 +154,7 @@ func (s *Server) imageHandler(w http.ResponseWriter, r *http.Request) {
 			"image": imageName,
 		}).WithError(err).Error("Failed to download image")
 		errorsTotalMetric.Inc()
-		var notFound *ErrImageNotFound
-		if errors.As(err, &notFound) {
+		if notFound, match := errors.AsType[*ErrImageNotFound](err); match {
 			writeJSONError(w, notFound.Error(), http.StatusNotFound)
 		} else {
 			writeJSONError(w, fmt.Sprintf("failed to download image: %v", err), http.StatusInternalServerError)
@@ -177,8 +176,7 @@ func (s *Server) platformsHandler(w http.ResponseWriter, r *http.Request) {
 	platforms, err := GetImagePlatforms(imageName)
 	if err != nil {
 		log.WithField("image", imageName).WithError(err).Error("Failed to get platforms")
-		var notFound *ErrImageNotFound
-		if errors.As(err, &notFound) {
+		if notFound, match := errors.AsType[*ErrImageNotFound](err); match {
 			writeJSONError(w, notFound.Error(), http.StatusNotFound)
 		} else {
 			writeJSONError(w, fmt.Sprintf("failed to get platforms: %v", err), http.StatusInternalServerError)
