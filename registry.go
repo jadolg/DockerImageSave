@@ -16,6 +16,15 @@ const bearerPrefix = "Bearer "
 const responseBodyStr = "response body"
 const invalidImageReferenceFormat = "invalid image reference: %w"
 
+// ErrImageNotFound is returned when the registry responds with 404 for a manifest request.
+type ErrImageNotFound struct {
+	Image string
+}
+
+func (e *ErrImageNotFound) Error() string {
+	return fmt.Sprintf("image not found: %s", e.Image)
+}
+
 // ImageReference represents a parsed Docker image reference
 type ImageReference struct {
 	Registry   string
@@ -217,7 +226,7 @@ func (c *RegistryClient) fetchToken(realm, service, scope string, creds Registry
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return "", fmt.Errorf("authentication failed: %d - %s", resp.StatusCode, string(body))
+		return "", fmt.Errorf("authentication failed (status %d): check credentials, or the image may not exist or may be private — %s", resp.StatusCode, string(body))
 	}
 
 	var tokenResp struct {
@@ -317,7 +326,14 @@ func (c *RegistryClient) GetPlatforms(ref ImageReference) ([]Platform, error) {
 	}
 	defer closeWithLog(resp.Body, responseBodyStr)
 
-	if resp.StatusCode != http.StatusOK {
+	switch resp.StatusCode {
+	case http.StatusOK:
+		// handled below
+	case http.StatusNotFound:
+		return nil, &ErrImageNotFound{Image: ref.Repository + ":" + ref.Tag}
+	case http.StatusUnauthorized, http.StatusForbidden:
+		return nil, fmt.Errorf("access denied (status %d): check credentials or verify the image exists", resp.StatusCode)
+	default:
 		body, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("failed to get manifest: %d - %s", resp.StatusCode, string(body))
 	}
@@ -403,7 +419,14 @@ func (c *RegistryClient) getManifest(ref ImageReference, platform Platform) (*Ma
 	}
 	defer closeWithLog(resp.Body, responseBodyStr)
 
-	if resp.StatusCode != http.StatusOK {
+	switch resp.StatusCode {
+	case http.StatusOK:
+		// handled below
+	case http.StatusNotFound:
+		return nil, &ErrImageNotFound{Image: ref.Repository + ":" + ref.Tag}
+	case http.StatusUnauthorized, http.StatusForbidden:
+		return nil, fmt.Errorf("access denied (status %d): check credentials or verify the image exists", resp.StatusCode)
+	default:
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 		return nil, fmt.Errorf("failed to get manifest: %d - %s", resp.StatusCode, string(body))
 	}

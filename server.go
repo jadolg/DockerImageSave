@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -153,7 +154,12 @@ func (s *Server) imageHandler(w http.ResponseWriter, r *http.Request) {
 			"image": imageName,
 		}).WithError(err).Error("Failed to download image")
 		errorsTotalMetric.Inc()
-		writeJSONError(w, fmt.Sprintf("failed to download image: %v", err), http.StatusInternalServerError)
+		var notFound *ErrImageNotFound
+		if errors.As(err, &notFound) {
+			writeJSONError(w, notFound.Error(), http.StatusNotFound)
+		} else {
+			writeJSONError(w, fmt.Sprintf("failed to download image: %v", err), http.StatusInternalServerError)
+		}
 		return
 	}
 	imagePath := result.(string)
@@ -171,7 +177,12 @@ func (s *Server) platformsHandler(w http.ResponseWriter, r *http.Request) {
 	platforms, err := GetImagePlatforms(imageName)
 	if err != nil {
 		log.WithField("image", imageName).WithError(err).Error("Failed to get platforms")
-		writeJSONError(w, fmt.Sprintf("failed to get platforms: %v", err), http.StatusInternalServerError)
+		var notFound *ErrImageNotFound
+		if errors.As(err, &notFound) {
+			writeJSONError(w, notFound.Error(), http.StatusNotFound)
+		} else {
+			writeJSONError(w, fmt.Sprintf("failed to get platforms: %v", err), http.StatusInternalServerError)
+		}
 		return
 	}
 	if platforms == nil {
