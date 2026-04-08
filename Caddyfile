@@ -1,7 +1,7 @@
 dockerimagesave.yourdomain.org {
         reverse_proxy dockerimagesave:8080
         header Access-Control-Allow-Methods "GET, OPTIONS"
-        header Access-Control-Allow-Headers "*"
+        header Access-Control-Allow-Headers "Content-Type, Accept, Range, Content-Disposition"
         header Access-Control-Allow-Origin "*"
         header X-Content-Type-Options "nosniff"
         header X-Frame-Options "DENY"
